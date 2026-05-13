@@ -31,6 +31,7 @@ and the per-field contract.
 | Filter bar UI | `src/components/panels/ListingsFilterBar.tsx` |
 | List UI | `src/components/panels/ListingsList.tsx` |
 | Property detail UI | `src/components/panels/PropertyDetail.tsx` |
+| Embedded location preview (Google/OSM) | `src/components/panels/PropertyLocationPreview.tsx` |
 | Map pin layer | `src/components/map/MapView.tsx` (`ScatterplotLayer 'listings'`) |
 | Viewport publish to filter store | `MapView` `useEffect` on `viewState` change |
 
@@ -72,6 +73,20 @@ and the per-field contract.
    `photoSeed % length` mapping shifts. Run `npm run seed`.
 3. If you change `photosForSeed`'s signature, update the call site in
    `scripts/lib/listings-generator.ts`.
+
+### Adding or swapping an embedded preview provider
+
+1. Edit `src/components/panels/PropertyLocationPreview.tsx` — both the
+   tab list and the iframe branch render against the `provider` state.
+2. Pick the simplest possible embed URL that **works without an API key**.
+   The two existing providers are precedents: Google's `output=embed`
+   legacy pattern and OSM's `export/embed.html` endpoint.
+3. If the provider needs scripts/cookies to function, leave the iframe
+   `sandbox` attribute *unset* (the default is most permissive). Don't
+   tighten security on third-party embeds — they often need cookies/local
+   storage that a sandbox blocks.
+4. Update `docs/LISTINGS.md` §6 with the provider notes and any CSP
+   `frame-src` change needed for Phase 2 hosting.
 
 ### Changing or adding an outbound portal URL
 

@@ -34,6 +34,7 @@ src/
     map/                   MapView, basemaps, Legend, ListingsToggle, MapLoadingOverlay
     panels/                LayerPanel (left), ResultsPanel (right) + children
                            ListingsFilterBar (sort/price/beds/EPC/type/tenure/viewport)
+                           PropertyLocationPreview (Google/OSM iframe embed)
     methodology/           MethodologyIndex, CriterionDetailPage, MethodologyLayout
     ui/                    Slider, Checkbox, IconButton  ← reuse before adding
   data/                    loader.ts (TanStack Query hooks), useActiveRegionData
@@ -108,9 +109,15 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
   object holds six real outbound URLs — Rightmove for-sale + Rightmove sold
   prices + Zoopla + OnTheMarket + Google Maps + Google Street View at the
   actual coordinates. Photos are *example* picks from a curated Unsplash CC0
-  catalog and labelled as such. The fly-to-selected-listing behaviour and the
-  Street View deep-link together give the user real visual context. See
-  `docs/LISTINGS.md` for the full subsystem.
+  catalog and labelled as such.
+- **Inline location preview**: PropertyDetail embeds a tabbed Google Maps
+  / OpenStreetMap iframe (no API key, both providers support unauthenticated
+  embeds) at the listing's coordinates, with a prominent Street View
+  deep-link beneath. See `docs/LISTINGS.md` §6.
+- **Synthetic-listing disclosure**: PropertyDetail's banner makes the
+  "demo listing" framing explicit, and the CTA labels read as searches
+  ("Find real listings on Rightmove") rather than portal names. See
+  `docs/LISTINGS.md` §5.
 
 ## Procedural recipes (skills)
 

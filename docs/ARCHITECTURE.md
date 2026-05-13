@@ -236,6 +236,12 @@ the PR description.
   URLs (Rightmove for-sale + sold prices + Zoopla + OnTheMarket + Maps +
   Street View). Map flies to the listing on selection. Photos labelled
   "Example photo" so users see the honesty caption next to the placeholder.
+- **Phase 1.5** (`feat/listings-embedded-preview`): embed the location
+  as an iframe in PropertyDetail (tabbed Google Maps / OpenStreetMap,
+  neither needs an API key) with a prominent Street View deep-link;
+  add a synthetic-listing disclosure banner; rewrite CTA copy as
+  searches ("Find real listings on Rightmove") rather than portal names
+  to fix the "I can't source the actual listing" UX confusion.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.

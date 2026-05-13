@@ -5,13 +5,13 @@ import {
   Building2,
   Calendar,
   ExternalLink,
-  Eye,
   Heart,
   Info,
   MapPin,
   Maximize2,
   Navigation,
   Receipt,
+  Search,
   Tag,
 } from 'lucide-react'
 import {
@@ -27,6 +27,7 @@ import { CRITERIA_BY_ID } from '@/lib/catalog'
 import { cn, epcColor, formatGBP } from '@/lib/utils'
 import { suitabilityRGBA } from '@/lib/colorRamp'
 import { useFavouritesStore } from '@/state/useFavoritesStore'
+import { PropertyLocationPreview } from './PropertyLocationPreview'
 
 interface Props {
   listing: Listing
@@ -81,6 +82,20 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
 
   return (
     <div className="flex flex-col gap-3 px-3 py-3">
+      {/* Synthetic-listing disclosure. The most important UX line in this
+          panel — the user's pain point was "I can't find the listing on
+          Rightmove." That's because the listing is synthetic. Say so
+          plainly here so the CTA labels below read correctly. */}
+      <div className="flex items-start gap-2 rounded-md border border-amber-700/40 bg-amber-900/15 px-3 py-2 text-[11px] text-amber-100">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+        <div>
+          <span className="font-semibold">Demo listing.</span> This property
+          is synthesised for the prototype. Use the buttons below to find
+          <span className="font-semibold"> real, currently-listed</span> homes
+          for sale at this postcode and price band.
+        </div>
+      </div>
+
       {/* Hero photo */}
       <div className="relative">
         <div
@@ -192,12 +207,19 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
         </div>
       )}
 
-      {/* Portal CTAs.
-          Each link lands on a *real* page: real Rightmove for-sale search,
-          real sold-price comparables, real Zoopla / OnTheMarket listings,
-          real Google Street View at the actual coordinates.
-          The synthetic listing surfaces real-world context — it doesn't
-          pretend to be a real listing itself. */}
+      {/* Embedded location preview.
+          A tabbed Google Maps / OpenStreetMap iframe at the listing's
+          actual coordinates, with a prominent Street View deep-link
+          immediately below. The visual answer to "is this real?" —
+          you see real cartographic data of the actual address. */}
+      <PropertyLocationPreview listing={listing} />
+
+      {/* Real-listing portal CTAs.
+          Each link lands on a *real, currently-active* page on the named
+          UK portal: Rightmove for-sale results, sold-price comparables,
+          Zoopla, OnTheMarket, and Google Maps. The synthetic listing's
+          job is to act as a thoughtful filter that points the user at
+          actual properties for sale in the area. */}
       {listing.portals && (
         <PortalCtas portals={listing.portals} listing={listing} />
       )}
@@ -295,10 +317,17 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
 }
 
 /**
- * Portal CTA row. Primary call-to-action is "View on Rightmove" (the largest
- * portal); below it sit a Street View card + a compact grid of secondary
- * portal links. Phase 2 will hoist one of these to point at the specific
- * real listing once portal partnerships exist.
+ * Real-listing portal CTAs.
+ *
+ * The Street View card used to live here in Phase 1.4 — it's been moved
+ * into PropertyLocationPreview to sit next to the embedded map. What's
+ * left is the cluster the user reaches for when they want to *find an
+ * actual property to view* — the headline Rightmove search at the top
+ * and the sibling portals + sold-prices comparables below.
+ *
+ * Phase 2 will replace `portals.rightmoveSearch` with a deep-link to the
+ * specific real listing once a portal partnership exists; the other
+ * URLs remain useful as cross-portal sanity checks.
  */
 function PortalCtas({
   portals,
@@ -307,60 +336,49 @@ function PortalCtas({
   portals: Listing['portals']
   listing: Listing
 }) {
+  const district = listing.postcode.split(' ')[0]
+  const priceShort = formatGBP(listing.price, { short: true })
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Primary — for-sale comparables on Rightmove */}
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
+        <Search className="h-3 w-3" />
+        Find real listings like this
+      </div>
+
+      {/* Primary — for-sale listings on Rightmove */}
       <a
         href={portals.rightmoveSearch}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-bg-base hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-panel"
-        title={`Real Rightmove search: ${listing.beds}-bed in ${listing.postcode.split(' ')[0]} at ~${formatGBP(listing.price, { short: true })}`}
+        className="group inline-flex items-center justify-between gap-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-bg-base hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-panel"
+        title={`Real Rightmove search: ${listing.beds}-bed in ${district} around ${priceShort}`}
       >
-        View comparable on Rightmove
-        <ExternalLink className="h-3.5 w-3.5" />
+        <span className="text-left">
+          Find real listings on Rightmove
+          <span className="block text-[10px] font-normal text-bg-base/80">
+            {listing.beds}-bed · {district} · around {priceShort}
+          </span>
+        </span>
+        <ExternalLink className="h-3.5 w-3.5 shrink-0" />
       </a>
 
-      {/* Secondary — Street View card. Visually emphasised because it's the
-          closest the user gets to a "real photo of this place" — actual
-          imagery of the actual street at the listing's coordinates. */}
-      <a
-        href={portals.googleStreetView}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group flex items-center gap-3 rounded-md border border-border bg-bg-subtle px-3 py-2 transition-colors hover:border-accent hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        title="Open Google Street View at this property's coordinates — real imagery of the actual street"
-      >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-bg-base text-accent group-hover:bg-accent group-hover:text-bg-base">
-          <Eye className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 text-sm text-ink-primary">
-            Open Street View
-            <ExternalLink className="h-3 w-3 text-ink-muted" />
-          </div>
-          <div className="truncate text-[11px] text-ink-muted">
-            Real imagery at {listing.lat.toFixed(4)}, {listing.lng.toFixed(4)}
-          </div>
-        </div>
-      </a>
-
-      {/* Tertiary — secondary portals (sold prices + other portals + maps) */}
+      {/* Secondary — sibling portals + sold-price comparables + Maps */}
       <div className="grid grid-cols-2 gap-1.5 text-[11px]">
         <PortalChip
           href={portals.rightmoveSoldPrices}
-          label="Rightmove sold prices"
-          title="Sold prices in this postcode district — real comparables"
+          label="Sold prices nearby"
+          title="Real Rightmove sold-prices page for this postcode district"
         />
         <PortalChip
           href={portals.zooplaSearch}
-          label="Zoopla"
-          title="Zoopla for-sale search for this postcode + price band"
+          label="Search on Zoopla"
+          title="Real Zoopla for-sale search at this postcode + price band"
         />
         <PortalChip
           href={portals.onTheMarket}
-          label="OnTheMarket"
-          title="OnTheMarket for-sale search for this postcode district"
+          label="Search on OnTheMarket"
+          title="Real OnTheMarket for-sale search at this postcode district"
         />
         <PortalChip
           href={portals.googleMaps}
@@ -369,12 +387,6 @@ function PortalCtas({
           icon={<Navigation className="h-3 w-3" />}
         />
       </div>
-
-      <p className="mt-1 flex items-center gap-1 text-[10px] text-ink-muted">
-        <Info className="h-2.5 w-2.5 shrink-0" />
-        Listings in Phase 1 are synthetic; the portal links land on real
-        comparable properties and Street View shows the actual street.
-      </p>
     </div>
   )
 }

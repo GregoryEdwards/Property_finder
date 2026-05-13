@@ -108,6 +108,27 @@ The builders in `src/lib/propertyUrl.ts`:
 - `buildPortalUrls(opts)` — convenience wrapper that returns the full
   object in one call. Used at seed time.
 
+### Sourcing-clarity UX (Phase 1.5)
+
+The earlier pain point — "the inspect tab makes it hard to source the
+original listing" — turned out to be a *clarity* problem rather than a
+data one. The listing isn't on Rightmove because the listing is synthetic.
+PropertyDetail makes this explicit:
+
+1. **Disclosure banner** at the very top of the panel:
+   "Demo listing. This property is synthesised for the prototype. Use the
+   buttons below to find real, currently-listed homes for sale at this
+   postcode and price band."
+2. **Headline CTA** below the location preview explicitly framed as a
+   *search*: "Find real listings on Rightmove" — with a subtitle showing
+   the filter parameters (e.g. "3-bed · SW1 · around £950k") so the user
+   knows what they'll see when they click.
+3. **Sibling portal chips** named for what they *do*: "Search on Zoopla",
+   "Search on OnTheMarket", "Sold prices nearby" — instead of bare portal
+   names.
+4. **"Find real listings like this"** section header makes the
+   "search for similar real properties" framing explicit.
+
 ### Why Street View is the cornerstone of "accurate photos"
 
 The Unsplash photos are *examples*. They're not photos of the actual
@@ -152,7 +173,47 @@ viewport intersection.
 
 ---
 
-## 6. Fly-to on listing select
+## 6. Embedded location preview (Phase 1.5)
+
+`PropertyDetail.tsx` renders a `<PropertyLocationPreview>` card showing the
+listing's actual coordinates on an embedded map, tabbed between two
+providers:
+
+- **Google Maps** — uses Google's legacy `output=embed` pattern at
+  `https://maps.google.com/maps?q=lat,lng&output=embed`. Works without an
+  API key; familiar to UK users; routes/POI labels match what they'd see
+  if they opened Google in a new tab.
+- **OpenStreetMap** — uses OSM's officially-supported embed endpoint at
+  `https://www.openstreetmap.org/export/embed.html?bbox=...&marker=lat,lng`.
+  Zero third-party tracking; sensible default for privacy-conscious users.
+
+The card's footer carries a **prominent Street View deep-link** — the
+visual companion to the embedded map. Clicking it opens real street
+imagery at the listing's coordinates in a new tab.
+
+### Why no embedded Street View
+
+Google Maps Embed API for Street View *requires* an API key, which we
+cannot ship in a static frontend without leaking it. The deep-link
+delivers the same content (real Street View imagery at the listing's
+coordinates) without the security or quota concerns.
+
+### iframe / security
+
+Both iframes use:
+- `loading="lazy"` so the browser can defer load when offscreen
+- `referrerPolicy="no-referrer-when-downgrade"` (don't leak referrer to
+  HTTP-downgraded targets)
+- A descriptive `title` attribute for accessibility
+
+No `sandbox` attribute today — both providers need scripts and same-origin
+content to render the map controls. If we tighten this later, the
+minimum needed is `sandbox="allow-scripts allow-same-origin allow-popups"`.
+
+When we add a Content Security Policy in Phase 2 hosting, `frame-src` will
+need to include `maps.google.com`, `www.google.com`, `www.openstreetmap.org`.
+
+## 7. Fly-to on listing select
 
 When `selectedListingId` changes, `MapView` flies the camera to the listing's
 `lat / lng` with `FlyToInterpolator` at speed 1.6 and a 900 ms duration.
@@ -169,7 +230,7 @@ The effect is guarded by:
   causes a fly to the wrong region.
 - A listing-existence check before flying (`listings.find(...)`).
 
-## 7. Viewport-aware filtering
+## 8. Viewport-aware filtering
 
 The `In view only` toggle relies on a live viewport bbox that `MapView`
 publishes to `useListingsFilterStore.setCurrentViewport` on every pan/zoom.
@@ -190,14 +251,14 @@ true, so the throttle isn't visible to filter results.
 
 ---
 
-## 8. Adding a region's listings
+## 9. Adding a region's listings
 
 See `.claude/skills/add-region/SKILL.md`. The factory in
 `scripts/lib/listings-generator.ts` handles photos + URLs + agents
 automatically; per-region scripts only declare postcode tables + seed
 constants.
 
-## 9. Adding a new filter
+## 10. Adding a new filter
 
 1. Add the field + setter to `useListingsFilterStore`.
 2. Add a UI surface to `ListingsFilterBar` (chip / range / select pattern;
@@ -208,7 +269,7 @@ constants.
 
 ---
 
-## 10. Phase 2 outlook
+## 11. Phase 2 outlook
 
 Once portal partnerships land:
 
