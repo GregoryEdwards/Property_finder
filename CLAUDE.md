@@ -1,0 +1,133 @@
+# CLAUDE.md — HomeSite / Property_finder
+
+You are working in **HomeSite**, a GIS multi-criteria suitability tool for UK
+house hunters. Two regions today (Greater London, West Midlands); 18 criteria.
+This file is the daily-driver brief. Detailed docs live in `docs/` and
+procedural recipes in `.claude/skills/`.
+
+## Commands
+
+```bash
+npm install                 # one-time
+npm run dev                 # http://localhost:5173 (Vite)
+npm run build               # tsc -b && vite build  ← run before every commit
+npm run lint                # eslint
+npm run seed                # regenerate both regions' cells + listings
+npm run seed:london         # only London cells + listings
+npm run seed:wm             # only West Midlands cells + listings
+npm run seed:cells:london   # only the cell grid
+npm run seed:listings:wm    # only the WM listings (depends on cells JSON)
+```
+
+There is **no test runner** yet. The safety net is `npx tsc -b` + `npx vite build`.
+Run both before committing. If you add tests, propose Vitest + React Testing Library
+in `docs/TESTING.md` and update this file.
+
+## Project structure
+
+```
+src/
+  App.tsx                  router shell (/, /methodology, /methodology/:id)
+  MapApp.tsx               three-column map workspace
+  components/
+    layout/                TopBar, RegionPicker
+    map/                   MapView, basemaps, Legend, ListingsToggle, MapLoadingOverlay
+    panels/                LayerPanel (left), ResultsPanel (right) + children
+    methodology/           MethodologyIndex, CriterionDetailPage, MethodologyLayout
+    ui/                    Slider, Checkbox, IconButton  ← reuse before adding
+  data/                    loader.ts (TanStack Query hooks), useActiveRegionData
+  lib/
+    catalog.ts             18 criterion definitions + 5 persona presets
+    methodology.ts         authored prose + cited sources per criterion
+    regions.ts             region registry (id → metadata + asset URLs)
+    suitability.ts         normalised WLC + hard-constraint masking
+    standardize.ts         shared raw → 0..100 transform (seed + runtime)
+    listings.ts            per-property suitability + price banding
+    colorRamp.ts           Viridis sampler (color-blind safe)
+    types.ts               domain types
+    utils.ts               cn(), formatGBP(), epcColor(), formatRaw()
+  state/                   Zustand stores (Profile + UI + Region + Favourites)
+public/data/regions/       region seed JSON (lazy fetched at runtime)
+scripts/                   per-region seed generators + shared listings factory
+docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
+.claude/skills/            procedural recipes (add-criterion, add-region, release-pr)
+```
+
+## Hard rules
+
+- **Always create a new branch + PR. Never push directly to `main`.** Claude Code's
+  auto-mode classifier blocks direct pushes to `main` for changes of any meaningful
+  size — that is the intended behaviour, not a bug to work around.
+- **`docs/CONVENTIONS.md` is the source of truth on style.** When in doubt, look there
+  before guessing.
+- **Demographic data never feeds the WLC.** Equality Act / fair-housing guardrail.
+  Demographic layers may be *displayed* but `defaultEnabled: false` for the WLC and
+  must never appear in `defaultHardConstraint`.
+- **TypeScript strict, no `any`.** Use the existing types in `src/lib/types.ts`.
+  Add to that file when extending the domain.
+- **Run `npx tsc -b` and `npx vite build` before every commit.** Both must pass.
+- **Cells failing a hard constraint render transparent, not low-score.** "Ineligible"
+  ≠ "low score." Preserve that distinction in any new constraint UI.
+- **Always show explanation alongside score.** The contribution breakdown is the
+  trust mechanism — never show the composite without it.
+
+## Tech stack
+
+- **React 18 + TypeScript strict + Vite 5** (no Next.js; SPA on a Vite dev server).
+- **MapLibre GL** basemap, **deck.gl 9** overlays (H3HexagonLayer + ScatterplotLayer).
+- **h3-js** for hex indexing (resolution 8 across both regions).
+- **react-map-gl/maplibre** for the MapLibre React wrapper.
+- **Zustand 5** for state. `persist` middleware on Profile / Favourites / Region stores.
+- **TanStack Query 5** for async region data; staleTime `Infinity` per session.
+- **react-router-dom 6** for routing; static-host SPA fallback in `public/_redirects`.
+- **Tailwind CSS 3** with tokens declared in `tailwind.config.js`. Don't hardcode colors.
+- **Radix UI** for accessible primitives (slider, popover, tabs, tooltip).
+- **dnd-kit** for drag-to-rank.
+- **recharts** for the per-property radar chart.
+- **lucide-react** for icons. Stay within this set — don't add new icon libs.
+- **Node 20+ / npm 11+**. Scripts use `tsx` for TS execution.
+
+## Key patterns
+
+- **Per-cell standardised scores**: every H3 cell carries a 0..100 score per criterion,
+  pre-computed by the seed generator using `src/lib/standardize.ts`. Runtime is a
+  weighted sum, sub-millisecond for ~9k cells.
+- **Region registry** (`src/lib/regions.ts`): adding a region is a registry entry
+  + a seed script. Data is fetched lazily from `/data/regions/<id>.{cells,listings}.json`,
+  not bundled. The initial JS payload does not grow when you add a region.
+- **Methodology pairs every criterion**: when you add a criterion to `catalog.ts`,
+  you *must* also add a `CriterionMethodology` entry to `lib/methodology.ts`.
+- **Seed scripts share the standardiser**: `scripts/generate-*-seed.ts` import
+  `standardize()` from `src/lib/standardize.ts` so seed-time and runtime never drift.
+
+## Procedural recipes (skills)
+
+Common multi-step changes are documented as skills — read these before doing the
+work, they're written to be self-contained:
+
+- `.claude/skills/add-criterion/SKILL.md` — add a new criterion (catalog + presets +
+  seed generators + methodology).
+- `.claude/skills/add-region/SKILL.md` — add a new metro / region.
+- `.claude/skills/release-pr/SKILL.md` — pre-PR checklist.
+
+## Gotchas
+
+- **Windows + git-bash**: CRLF warnings on `git add` are harmless. Don't change
+  `core.autocrlf`.
+- **`generatedAt` drift**: `npm run seed` rewrites the JSON with a fresh timestamp.
+  If your diff shows only timestamp changes, you don't need to commit it.
+- **Seed JSON is large** (~4 MB raw per region). Static-host gzip cuts that to
+  ~700 KB on the wire. Don't try to inline these via `import` — that's what
+  Phase 1.1 deliberately stopped doing.
+- **TanStack Query** wraps the app in `src/main.tsx`. Components consume via
+  `useActiveRegionData()` rather than rolling their own fetches.
+- **`@/` import alias** points to `src/`. Use it; don't use relative `../../` past
+  one level.
+- **Direct push to `main` is blocked** by the Claude Code classifier. Always branch.
+
+## Personal scratch + global notes
+
+- `CLAUDE.local.md` is gitignored; use it for machine-specific notes (your local
+  paths, scratch findings, debugging hunches).
+- `~/.claude/CLAUDE.md` is the user's global file across all projects, not
+  managed here.

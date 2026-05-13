@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code — personal/project-scoped scratch notes (not for the repo)
+CLAUDE.local.md
+.claude/settings.local.json
