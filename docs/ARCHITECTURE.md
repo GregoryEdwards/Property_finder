@@ -249,6 +249,17 @@ the PR description.
   mini-map driven by the user's global basemap selection; added a
   generic `ErrorBoundary` (class component) so future render-time
   failures show a recoverable error UI instead of blanking the panel.
+- **Phase 1.5.2** (`fix/listings-portals-fallback`): the
+  `Cannot read properties of undefined (reading 'googleStreetView')`
+  failure showed that browsers with cached pre-Phase-1.4 listing JSON
+  blew up the panel (caught cleanly by the new ErrorBoundary). Two
+  fixes: (a) `Listing.portals` becomes optional with a
+  `resolveListingPortals(listing)` runtime fallback that rebuilds the
+  URLs from the listing's other fields; (b) the inline MapLibre
+  preview is removed entirely — the main map's fly-to-on-select
+  already covers the "show me where this is" need, so the duplicate
+  embedded map was just visual noise. The Street View deep-link is
+  promoted to a prominent card directly above the portal CTAs.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.

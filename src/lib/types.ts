@@ -180,8 +180,12 @@ export interface Listing {
    *  honestly via a caption. */
   photos: string[]
   /** Outbound portal deep-links — real Rightmove / Zoopla / OnTheMarket
-   *  searches plus Google Maps and Street View at the actual coordinates. */
-  portals: ListingPortalUrls
+   *  searches plus Google Maps and Street View at the actual coordinates.
+   *  Optional so older cached listing JSON (pre-Phase-1.4) doesn't crash
+   *  the UI — `resolveListingPortals()` in `src/lib/listings.ts` provides
+   *  a runtime fallback by rebuilding the URLs from lat/lng/postcode/
+   *  price/beds. */
+  portals?: ListingPortalUrls
   /** Synthetic agency name. */
   agentName: string
 }

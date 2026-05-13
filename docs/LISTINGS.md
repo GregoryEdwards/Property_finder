@@ -173,50 +173,61 @@ viewport intersection.
 
 ---
 
-## 6. Inline location preview (Phase 1.5.1)
+## 6. Location preview (Phase 1.5.2)
 
-`PropertyDetail.tsx` renders a `<PropertyLocationPreview>` card showing the
-listing's actual coordinates on a **small MapLibre map driven by the same
-basemap style the user has selected globally** (dark / light / satellite).
+This section has had three lives, in roughly equal short succession:
 
-### Why not iframes any more
+1. **Phase 1.5**: tabbed Google Maps / OpenStreetMap iframe embeds. Google's
+   `output=embed` legacy pattern was inconsistently blocked by
+   `X-Frame-Options: SAMEORIGIN` and corporate networks blocked both
+   providers, producing a blank panel.
+2. **Phase 1.5.1**: replaced the iframes with an inline MapLibre mini-map
+   reusing the main map's basemap style. Robust, but it duplicated context
+   the user could already see by virtue of the main map flying to the
+   selected listing on click.
+3. **Phase 1.5.2 (current)**: removed `PropertyLocationPreview` entirely.
+   The inspect panel is back to the simpler Phase-1.4 layout: example
+   photo + gallery, property details, then a prominent **Street View
+   card** + portal CTA grid. The main map already shows the listing's
+   actual area because of the fly-to behaviour, so a second embedded
+   map was redundant.
 
-Phase 1.5 originally shipped this as tabbed Google Maps / OpenStreetMap
-iframe embeds. Two problems:
+### The Street View card
 
-1. **Google blocks the embed.** Google's `maps.google.com?output=embed`
-   legacy pattern is increasingly returning `X-Frame-Options: SAMEORIGIN`,
-   producing a silent blank iframe. The official Embed API requires an
-   API key, which we can't ship in a static frontend without leaking it.
-2. **Some networks block both.** Corporate firewalls, ad blockers, and
-   restrictive privacy extensions block `maps.google.com` and
-   `openstreetmap.org` iframes. The user sees a blank card and reports
-   a "blank screen".
+`PortalCtas` renders a high-contrast card at the top of the CTA cluster:
 
-Phase 1.5.1 switched to an inline MapLibre map for the preview:
+> 👁  **View on Google Street View** ↗
+>     *Real imagery at 51.5074, -0.1278*
 
-- No iframe → no `X-Frame-Options` concerns
-- No third-party loading → reliable in restricted networks
-- Same WebGL stack (MapLibre + CartoDB / Esri tiles) as the main map →
-  visual continuity, shared tile cache
-- The user can pan + zoom freely inside the card without leaving the
-  panel
+This is the visual centrepiece — the closest thing a synthetic listing
+delivers to "a real photo of this place." Click and the user lands on
+real Google Street View imagery at the property's actual coordinates,
+no API key, no auth.
 
-### What renders
+### Defensive portals fallback
 
-- Map at zoom 15.5 centred on `listing.lng / listing.lat`
-- A `<Marker>` with a styled `MapPin` at the property coordinates
-- Standard MapLibre attribution control (compact)
-- An `onError` handler captures any MapLibre init failure and shows a
-  graceful placeholder instead of blanking the card
+The user can hit "blank panel" on listings that lack the `portals` field
+— that happens when the browser has an older listings JSON in HTTP cache
+from before Phase 1.4 added the structured `portals` shape.
 
-### Deep-link footer (unchanged from Phase 1.5)
+`Listing.portals` is therefore **optional** in the type system, and
+`src/lib/listings.ts#resolveListingPortals(listing)` rebuilds the URLs
+from `lat / lng / postcode / price / beds` at runtime if `portals` is
+missing. `PortalCtas` always calls through this helper.
 
-Below the map: the prominent **"View Street View imagery here"** CTA
-opening Google Street View at the actual coordinates (real imagery,
-new tab), plus two smaller chips for **Open in Google Maps** and
-**Open in OpenStreetMap**. These deep-links are not iframes, so they're
-unaffected by the blocking that prompted the pivot.
+Plus an `ErrorBoundary` around `PropertyDetail` (see §6.1) catches any
+remaining render-time failure and shows a recoverable error UI rather
+than a blank panel.
+
+### §6.1 ErrorBoundary
+
+`src/components/util/ErrorBoundary.tsx` is a generic class-component
+boundary that captures render-time errors in its subtree and renders a
+red-tinted "Something went wrong" card with a "Try again" reset.
+`ResultsPanel` wraps `PropertyDetail` in it, keyed by listing id so a
+new selection always remounts fresh. Use this around any subtree that
+loads third-party content or potentially-stale data — see the recipe in
+`.claude/skills/work-with-listings/SKILL.md`.
 
 ## 7. Fly-to on listing select
 

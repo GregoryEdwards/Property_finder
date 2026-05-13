@@ -34,7 +34,8 @@ src/
     map/                   MapView, basemaps, Legend, ListingsToggle, MapLoadingOverlay
     panels/                LayerPanel (left), ResultsPanel (right) + children
                            ListingsFilterBar (sort/price/beds/EPC/type/tenure/viewport)
-                           PropertyLocationPreview (inline MapLibre mini-map)
+                           PropertyDetail's PortalCtas carries the Street
+                           View card + Rightmove/Zoopla/OTM links
     util/                  ErrorBoundary (class-based subtree guard)
     methodology/           MethodologyIndex, CriterionDetailPage, MethodologyLayout
     ui/                    Slider, Checkbox, IconButton  ← reuse before adding
@@ -111,12 +112,16 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
   prices + Zoopla + OnTheMarket + Google Maps + Google Street View at the
   actual coordinates. Photos are *example* picks from a curated Unsplash CC0
   catalog and labelled as such.
-- **Inline location preview**: PropertyDetail embeds a small MapLibre map
-  driven by the user's globally-selected basemap style, with a pin at the
-  listing's coordinates and a prominent Street View deep-link beneath.
-  Originally shipped (Phase 1.5) as a Google/OSM iframe embed but Google's
-  `output=embed` was unreliable and corporate networks blocked OSM too —
-  Phase 1.5.1 pivoted to MapLibre for reliability. See `docs/LISTINGS.md` §6.
+- **Street View deep-link, not an embedded map**: the inspect panel
+  ships a prominent "View on Google Street View" card on PropertyDetail.
+  No embedded map (Phase 1.5 iframe and Phase 1.5.1 MapLibre versions
+  both reverted — see `docs/LISTINGS.md` §6 for the history). The main
+  map flying to the listing on selection covers the "show me where this
+  is" need.
+- **`resolveListingPortals(listing)`**: always read `portals` through this
+  helper in `src/lib/listings.ts`. It returns `listing.portals` if present
+  and otherwise rebuilds the URLs at runtime from lat/lng/postcode/price/
+  beds, so stale-cached listing JSON (pre-Phase-1.4) never crashes.
 - **ErrorBoundary**: any third-party-prone subtree (PropertyDetail in
   particular) should be wrapped in `@/components/util/ErrorBoundary` so a
   failure becomes a recoverable error UI rather than a blank panel.

@@ -5,6 +5,7 @@ import {
   Building2,
   Calendar,
   ExternalLink,
+  Eye,
   Heart,
   Info,
   MapPin,
@@ -22,12 +23,12 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from 'recharts'
-import type { Listing, PropertySuitability } from '@/lib/types'
+import type { Listing, ListingPortalUrls, PropertySuitability } from '@/lib/types'
 import { CRITERIA_BY_ID } from '@/lib/catalog'
+import { resolveListingPortals } from '@/lib/listings'
 import { cn, epcColor, formatGBP } from '@/lib/utils'
 import { suitabilityRGBA } from '@/lib/colorRamp'
 import { useFavouritesStore } from '@/state/useFavoritesStore'
-import { PropertyLocationPreview } from './PropertyLocationPreview'
 
 interface Props {
   listing: Listing
@@ -207,22 +208,14 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
         </div>
       )}
 
-      {/* Embedded location preview.
-          A tabbed Google Maps / OpenStreetMap iframe at the listing's
-          actual coordinates, with a prominent Street View deep-link
-          immediately below. The visual answer to "is this real?" —
-          you see real cartographic data of the actual address. */}
-      <PropertyLocationPreview listing={listing} />
-
-      {/* Real-listing portal CTAs.
-          Each link lands on a *real, currently-active* page on the named
-          UK portal: Rightmove for-sale results, sold-price comparables,
-          Zoopla, OnTheMarket, and Google Maps. The synthetic listing's
-          job is to act as a thoughtful filter that points the user at
-          actual properties for sale in the area. */}
-      {listing.portals && (
-        <PortalCtas portals={listing.portals} listing={listing} />
-      )}
+      {/* Portal CTAs — Street View card + real-listing search links.
+          Phase 1.5 briefly shipped an inline MapLibre map for the
+          "location preview"; Phase 1.5.2 reverted to this simpler layout
+          (prominent Street View card + portal grid) per user feedback.
+          Defensive: portals may be missing on stale cached listing JSON,
+          so we resolve via resolveListingPortals() with a runtime rebuild
+          fallback. */}
+      <PortalCtas listing={listing} />
 
       {/* Suitability scorecard */}
       <div className="mt-1 rounded-md border border-border bg-bg-base p-3">
@@ -319,29 +312,50 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
 /**
  * Real-listing portal CTAs.
  *
- * The Street View card used to live here in Phase 1.4 — it's been moved
- * into PropertyLocationPreview to sit next to the embedded map. What's
- * left is the cluster the user reaches for when they want to *find an
- * actual property to view* — the headline Rightmove search at the top
- * and the sibling portals + sold-prices comparables below.
+ * Layout (top → bottom):
+ *  1. Street View card — opens real Google Street View imagery at the
+ *     property's coordinates in a new tab. The closest a synthetic
+ *     listing comes to "a real photo of this place."
+ *  2. Primary Rightmove search button.
+ *  3. Grid of sibling portal links (sold prices, Zoopla, OnTheMarket,
+ *     Google Maps).
  *
- * Phase 2 will replace `portals.rightmoveSearch` with a deep-link to the
- * specific real listing once a portal partnership exists; the other
- * URLs remain useful as cross-portal sanity checks.
+ * Defensive: `resolveListingPortals` handles old listing JSON that lacks
+ * the `portals` object — it rebuilds the URLs from lat/lng/postcode/
+ * price/beds at runtime. Newer seed data has `portals` baked in.
  */
-function PortalCtas({
-  portals,
-  listing,
-}: {
-  portals: Listing['portals']
-  listing: Listing
-}) {
+function PortalCtas({ listing }: { listing: Listing }) {
+  const portals: ListingPortalUrls = resolveListingPortals(listing)
   const district = listing.postcode.split(' ')[0]
   const priceShort = formatGBP(listing.price, { short: true })
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
+      {/* Street View card — prominent, visually-emphasised because it's
+          the surface that delivers real imagery of the actual street.
+          Distinct from the example hero photo above. */}
+      <a
+        href={portals.googleStreetView}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-center gap-3 rounded-md border border-border bg-bg-subtle px-3 py-2 transition-colors hover:border-accent hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        title="Open Google Street View at this property's coordinates — real imagery of the actual street"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-bg-base text-accent group-hover:bg-accent group-hover:text-bg-base">
+          <Eye className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1 text-sm text-ink-primary">
+            View on Google Street View
+            <ExternalLink className="h-3 w-3 text-ink-muted" />
+          </div>
+          <div className="truncate text-[11px] text-ink-muted">
+            Real imagery at {listing.lat.toFixed(4)}, {listing.lng.toFixed(4)}
+          </div>
+        </div>
+      </a>
+
+      <div className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
         <Search className="h-3 w-3" />
         Find real listings like this
       </div>

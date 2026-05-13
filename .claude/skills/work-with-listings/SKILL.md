@@ -31,7 +31,8 @@ and the per-field contract.
 | Filter bar UI | `src/components/panels/ListingsFilterBar.tsx` |
 | List UI | `src/components/panels/ListingsList.tsx` |
 | Property detail UI | `src/components/panels/PropertyDetail.tsx` |
-| Embedded location preview (Google/OSM) | `src/components/panels/PropertyLocationPreview.tsx` |
+| Runtime portals fallback | `src/lib/listings.ts#resolveListingPortals` |
+| Error boundary around PropertyDetail | `src/components/util/ErrorBoundary.tsx` (wrapping in `ResultsPanel`) |
 | Map pin layer | `src/components/map/MapView.tsx` (`ScatterplotLayer 'listings'`) |
 | Viewport publish to filter store | `MapView` `useEffect` on `viewState` change |
 
@@ -74,24 +75,36 @@ and the per-field contract.
 3. If you change `photosForSeed`'s signature, update the call site in
    `scripts/lib/listings-generator.ts`.
 
-### Changing the inline location preview
+### Don't re-add an embedded location preview
 
-`PropertyLocationPreview` uses an inline MapLibre map (not an iframe).
-Phase 1.5 originally shipped iframes; that was reverted in 1.5.1 because
-Google's `output=embed` pattern returns `X-Frame-Options: SAMEORIGIN`
-inconsistently and corporate networks block both providers. **Do not
-re-introduce iframes here** without re-reading `docs/LISTINGS.md` §6.
+Phase 1.5 shipped a tabbed Google/OSM iframe preview; Phase 1.5.1
+swapped to an inline MapLibre map; Phase 1.5.2 removed it entirely
+because the main map already flies to the selected listing's location
+and a duplicate embedded map was just visual noise. **If a future
+request asks for an inline map, push back** with this rationale — and
+read `docs/LISTINGS.md` §6 for the full history before reintroducing
+one. The "show me where this is" need is already met by the main map's
+fly-to behaviour.
 
-To customise the preview:
+### Reading `listing.portals` defensively
 
-1. Edit `src/components/panels/PropertyLocationPreview.tsx`.
-2. The map uses `react-map-gl/maplibre`'s `<Map>` with the global basemap
-   style from `useUIStore`. To change the pin, edit the `<Marker>` content.
-3. The `onError` handler captures MapLibre init failures and renders a
-   graceful placeholder. Don't remove it without an equivalent fallback.
-4. The footer deep-links (Street View, Google Maps, OpenStreetMap) come
-   from `listing.portals.*` — those URLs are built at seed time by
-   `src/lib/propertyUrl.ts`. See the "Adding an outbound portal URL" recipe.
+`Listing.portals` is **optional** in the type. Cached / stale listing
+JSON from before Phase 1.4 lacks the field and crashes a direct read
+like `listing.portals.googleStreetView`.
+
+Always read portals via `resolveListingPortals(listing)` from
+`src/lib/listings.ts`:
+
+```ts
+import { resolveListingPortals } from '@/lib/listings'
+
+const portals = resolveListingPortals(listing)  // never undefined
+```
+
+The helper returns the stored portals if present, otherwise rebuilds
+them from lat/lng/postcode/price/beds using `buildPortalUrls` from
+`src/lib/propertyUrl.ts` — the same builder the seed-time generator
+uses, so URLs are byte-identical to a freshly-seeded listing.
 
 ### Wrapping new widgets in ErrorBoundary
 
