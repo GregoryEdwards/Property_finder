@@ -8,7 +8,7 @@ import { dirname } from 'node:path'
 import { latLngToCell, cellToLatLng } from 'h3-js'
 import type { Listing, SeedFile } from '../../src/lib/types'
 import { photosForSeed } from '../../src/lib/listingPhotos'
-import { rightmoveSearchUrl, AGENT_POOL } from '../../src/lib/propertyUrl'
+import { buildPortalUrls, AGENT_POOL } from '../../src/lib/propertyUrl'
 
 export interface PostcodeArea {
   prefix: string
@@ -201,7 +201,7 @@ export function generateListings(opts: ListingsGenerationOptions) {
       councilTaxBand: (cell.raw.council_tax as Listing['councilTaxBand']) ?? 'D',
       daysOnMarket: 1 + Math.floor(rand() * 95),
       photos: photosForSeed(photoSeed, 3),
-      propertyUrl: rightmoveSearchUrl({ postcode: pc, price, beds }),
+      portals: buildPortalUrls({ postcode: pc, price, beds, lat, lng }),
       agentName: pick(AGENT_POOL),
     })
   }

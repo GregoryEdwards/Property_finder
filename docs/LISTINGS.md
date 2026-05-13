@@ -46,8 +46,8 @@ useActiveRegionData() → cells + listings
 | `epc` | Distribution: ~5% A, ~12% B, ~35% C, ~30% D, ~13% E, ~4% F, ~1% G | Approximates the actual UK distribution. |
 | `councilTaxBand` | Inherited from cell's `council_tax` raw | Stays consistent with the cell-level affluence pattern. |
 | `daysOnMarket` | 1..95 uniform | Synthetic. |
-| `photos` | `photosForSeed(photoSeed, 3)` from `lib/listingPhotos.ts` | 1 hero + 3 gallery thumbnails, Unsplash CDN URLs. |
-| `propertyUrl` | `rightmoveSearchUrl(...)` from `lib/propertyUrl.ts` | Outbound Rightmove search URL with postcode district + bed count + price ±10%. **Lands on real comparable listings.** |
+| `photos` | `photosForSeed(photoSeed, 3)` from `lib/listingPhotos.ts` | 1 hero + 3 gallery thumbnails, Unsplash CDN URLs. **Example photos, not the property.** PropertyDetail labels this. |
+| `portals` | `buildPortalUrls(...)` from `lib/propertyUrl.ts` | Six real outbound URLs — see §4 below. |
 | `agentName` | Pick from `AGENT_POOL` | Synthetic agency name. |
 
 ---
@@ -78,23 +78,47 @@ replacement.
 
 ---
 
-## 4. The `propertyUrl` and the outbound CTA
+## 4. Multi-portal URLs (the `portals` object)
 
-Each synthetic listing carries a Rightmove search URL pre-filled with:
+Each synthetic listing carries six real outbound URLs in a structured
+`portals` field. Every URL lands on a useful real page; clicking through
+shows genuine current market data even though the listing itself is
+synthetic.
 
-- `searchLocation = <postcode district>` (e.g. `SW`, `B`, `CV`)
-- `minBedrooms` / `maxBedrooms = beds`
-- `minPrice` / `maxPrice = price ± 10%` (rounded to nearest £5k)
-- `searchType = SALE`
+| Field | Lands on | Useful for |
+|---|---|---|
+| `portals.rightmoveSearch` | Real Rightmove for-sale results in the postcode district + bed count + price ±10% | The headline CTA — see current asking prices for *real* comparable properties. |
+| `portals.rightmoveSoldPrices` | Real Rightmove sold-prices page for the postcode district | The single most useful real-world page for triangulating value. |
+| `portals.zooplaSearch` | Real Zoopla for-sale results, same filters | Cross-portal sanity check; Zoopla sometimes lists what Rightmove doesn't. |
+| `portals.onTheMarket` | Real OnTheMarket for-sale results | Third-largest UK portal; useful for properties not on Rightmove / Zoopla. |
+| `portals.googleMaps` | Google Maps at the **actual coordinates** | See the neighbourhood at a glance. |
+| `portals.googleStreetView` | Google Street View at the **actual coordinates** | **Real imagery of the actual street the listing sits on** — the closest "accurate photo" we can deliver without a portal partnership. No API key required (uses the documented Maps URL API). |
 
-So clicking "View comparable on Rightmove" from `PropertyDetail` lands the
-user on a **real Rightmove results page** showing genuinely-listed
-properties in the postcode district at a comparable price. The demo isn't
-pretending the synthetic listing is real; it's directing the user to real
-comparables.
+The builders in `src/lib/propertyUrl.ts`:
 
-In Phase 2 with a portal partnership, `propertyUrl` will deep-link to the
-specific Rightmove listing for that property. The schema doesn't change.
+- `rightmoveSearchUrl({ postcode, price, beds })` — `find.html` with
+  `searchLocation` (Rightmove resolves to its internal locationIdentifier
+  server-side) + bed count + ±10% price band + `radius=0.0`.
+- `rightmoveSoldPricesUrl({ postcode })` — `/house-prices/<district>.html`.
+- `zooplaSearchUrl({ postcode, price, beds })` — `for-sale/property/<district>/`
+  with `price_min/max` + `beds_min/max`.
+- `onTheMarketUrl({ postcode })` — `for-sale/property/<district>/`.
+- `googleMapsUrl({ lat, lng })` — `maps/search/?api=1&query=lat,lng`.
+- `googleStreetViewUrl({ lat, lng })` — `maps/@?api=1&map_action=pano&viewpoint=lat,lng`.
+- `buildPortalUrls(opts)` — convenience wrapper that returns the full
+  object in one call. Used at seed time.
+
+### Why Street View is the cornerstone of "accurate photos"
+
+The Unsplash photos are *examples*. They're not photos of the actual
+property — they can't be; the property doesn't exist. The honest substitute
+is Street View at the listing's coordinates: real imagery of the real
+street. PropertyDetail surfaces this as a dedicated card (not just a chip)
+so the user sees a clear path to actual photography of the place.
+
+Phase 2 with portal partnership replaces `portals.rightmoveSearch` with a
+direct deep-link to the specific listing, and `photos` with the real
+listing photos.
 
 ---
 
@@ -128,7 +152,24 @@ viewport intersection.
 
 ---
 
-## 6. Viewport-aware filtering
+## 6. Fly-to on listing select
+
+When `selectedListingId` changes, `MapView` flies the camera to the listing's
+`lat / lng` with `FlyToInterpolator` at speed 1.6 and a 900 ms duration.
+Minimum zoom 14 so the user always lands close enough to see the surrounding
+streets.
+
+This is the second "accurate location" mechanism: the user sees the real
+street/area on the live basemap, complementing the honest-placeholder
+photos and the Street View deep-link in PropertyDetail.
+
+The effect is guarded by:
+- The `selectedListingId` dependency only — region switches clear the
+  selection in `App.tsx` *before* this effect runs, so a stale ID never
+  causes a fly to the wrong region.
+- A listing-existence check before flying (`listings.find(...)`).
+
+## 7. Viewport-aware filtering
 
 The `In view only` toggle relies on a live viewport bbox that `MapView`
 publishes to `useListingsFilterStore.setCurrentViewport` on every pan/zoom.
@@ -149,14 +190,14 @@ true, so the throttle isn't visible to filter results.
 
 ---
 
-## 7. Adding a region's listings
+## 8. Adding a region's listings
 
 See `.claude/skills/add-region/SKILL.md`. The factory in
 `scripts/lib/listings-generator.ts` handles photos + URLs + agents
 automatically; per-region scripts only declare postcode tables + seed
 constants.
 
-## 8. Adding a new filter
+## 9. Adding a new filter
 
 1. Add the field + setter to `useListingsFilterStore`.
 2. Add a UI surface to `ListingsFilterBar` (chip / range / select pattern;
@@ -167,7 +208,7 @@ constants.
 
 ---
 
-## 9. Phase 2 outlook
+## 10. Phase 2 outlook
 
 Once portal partnerships land:
 

@@ -78,6 +78,28 @@ export function MapView() {
     })
   }, [region.id, region.anchor.lat, region.anchor.lng, region.defaultZoom])
 
+  // Fly to the selected listing whenever the selection changes (e.g. from a
+  // ListingsList click). This is the "accurate location" mechanism: the
+  // user sees the real street on the live basemap, which complements the
+  // honest-placeholder photos in PropertyDetail.
+  //
+  // Only fires when the listing actually changes — we don't want a region
+  // switch to re-fly to a stale selection (the region effect runs first
+  // and `selectedListingId` is cleared in App.tsx on region change).
+  useEffect(() => {
+    if (!selectedListingId) return
+    const listing = listings.find((l) => l.id === selectedListingId)
+    if (!listing) return
+    setViewState((prev) => ({
+      ...prev,
+      longitude: listing.lng,
+      latitude: listing.lat,
+      zoom: Math.max(prev.zoom, 14),
+      transitionDuration: 900,
+      transitionInterpolator: new FlyToInterpolator({ speed: 1.6 }),
+    }))
+  }, [selectedListingId, listings])
+
   // Track container dimensions for viewport-bounds computation. Used by
   // the "in view only" listings filter. ResizeObserver because the panels
   // collapse and change the container size at runtime.

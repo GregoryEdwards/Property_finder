@@ -104,12 +104,17 @@ and produces Rightmove-style records (price, beds/baths, sqft, tenure,
 EPC, council tax band, days-on-market, **photos, propertyUrl, agentName**).
 
 Each synthetic listing carries:
-- a deterministic set of photos from a curated Unsplash CC0 catalog
-  (`src/lib/listingPhotos.ts`)
-- an outbound `propertyUrl` built by `src/lib/propertyUrl.ts` that lands
-  the user on a **real Rightmove search** for the postcode district + price
-  ±10% + bed count. This is genuinely useful: even though the listing is
-  synthetic, clicking through shows real comparable properties.
+- a deterministic set of *example* photos from a curated Unsplash CC0 catalog
+  (`src/lib/listingPhotos.ts`), surfaced in PropertyDetail with an
+  "Example photo" overlay so users understand they're not photos of the
+  specific property
+- a `portals` object built by `src/lib/propertyUrl.ts` with six real
+  outbound URLs: Rightmove for-sale, Rightmove sold prices, Zoopla,
+  OnTheMarket, Google Maps, and Google Street View — all anchored to the
+  listing's postcode district + bed + price band, or directly to the
+  coordinates for Maps/Street View
+- the map flies to the listing's coordinates on selection, giving the
+  user real visual context of the actual area on the live basemap
 
 Filter/sort/viewport discovery for listings is implemented in
 `src/data/useFilteredListings.ts` (a single hook the Listings and
@@ -226,6 +231,11 @@ the PR description.
   curated Unsplash photo catalog, Rightmove deep-link `propertyUrl`,
   filter / sort / postcode search / viewport-only toggle, photo gallery
   on PropertyDetail. See `docs/LISTINGS.md`.
+- **Phase 1.4** (`feat/listings-portal-accuracy`): replace single
+  `propertyUrl` with a structured `portals` object — six real outbound
+  URLs (Rightmove for-sale + sold prices + Zoopla + OnTheMarket + Maps +
+  Street View). Map flies to the listing on selection. Photos labelled
+  "Example photo" so users see the honesty caption next to the placeholder.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.

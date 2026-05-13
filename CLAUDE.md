@@ -104,9 +104,12 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
   you *must* also add a `CriterionMethodology` entry to `lib/methodology.ts`.
 - **Seed scripts share the standardiser**: `scripts/generate-*-seed.ts` import
   `standardize()` from `src/lib/standardize.ts` so seed-time and runtime never drift.
-- **Listings have real outbound URLs**: each synthetic listing's `propertyUrl`
-  links to a real Rightmove search for the postcode district + price ±10% + bed
-  count. Photos are deterministic picks from a curated Unsplash CC0 catalog. See
+- **Listings have real outbound URLs**: each synthetic listing's `portals`
+  object holds six real outbound URLs — Rightmove for-sale + Rightmove sold
+  prices + Zoopla + OnTheMarket + Google Maps + Google Street View at the
+  actual coordinates. Photos are *example* picks from a curated Unsplash CC0
+  catalog and labelled as such. The fly-to-selected-listing behaviour and the
+  Street View deep-link together give the user real visual context. See
   `docs/LISTINGS.md` for the full subsystem.
 
 ## Procedural recipes (skills)

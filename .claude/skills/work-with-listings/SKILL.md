@@ -73,12 +73,22 @@ and the per-field contract.
 3. If you change `photosForSeed`'s signature, update the call site in
    `scripts/lib/listings-generator.ts`.
 
-### Changing the outbound URL builder
+### Changing or adding an outbound portal URL
 
-1. Edit `src/lib/propertyUrl.ts`. Keep the return type as a string for now.
-2. Regenerate seeds: `npm run seed:listings:london && npm run seed:listings:wm`.
-3. If you add new URL-affecting fields (e.g. property type into the URL),
-   thread them through `BuildUrlOpts` and the call site.
+1. Edit `src/lib/propertyUrl.ts`. The portal builders all live there:
+   `rightmoveSearchUrl`, `rightmoveSoldPricesUrl`, `zooplaSearchUrl`,
+   `onTheMarketUrl`, `googleMapsUrl`, `googleStreetViewUrl`, and the
+   wrapper `buildPortalUrls`.
+2. **Honesty rule**: every portal URL must land on a *useful real page*.
+   Don't add a CTA that 404s or lands on an irrelevant search. Test the
+   URL pattern with a real postcode before merging.
+3. If you add a new portal field, extend `ListingPortalUrls` in
+   `src/lib/types.ts`, populate it in `buildPortalUrls`, and add a render
+   surface in `PortalCtas` inside `PropertyDetail.tsx`.
+4. Regenerate seeds: `npm run seed:listings:london && npm run seed:listings:wm`.
+5. Phase 2 will replace `portals.rightmoveSearch` with a deep-link to the
+   specific real listing. Don't rename the field — the shape is part of
+   the contract between Phase 1 synthetic and Phase 2 real-portal ingest.
 
 ### Adding a new region's listings
 

@@ -5,9 +5,12 @@ import {
   Building2,
   Calendar,
   ExternalLink,
+  Eye,
   Heart,
+  Info,
   MapPin,
   Maximize2,
+  Navigation,
   Receipt,
   Tag,
 } from 'lucide-react'
@@ -79,16 +82,25 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
   return (
     <div className="flex flex-col gap-3 px-3 py-3">
       {/* Hero photo */}
-      <div
-        className="aspect-[16/9] w-full overflow-hidden rounded-md bg-bg-subtle"
-        aria-label="Property photo"
-      >
-        <img
-          src={hero}
-          alt=""
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
+      <div className="relative">
+        <div
+          className="aspect-[16/9] w-full overflow-hidden rounded-md bg-bg-subtle"
+          aria-label="Example property photo"
+        >
+          <img
+            src={hero}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        </div>
+        {/* Honesty caption: these are example photos, not photos of this
+            specific property. The portals row below links to the real
+            listing pages where genuine photos live. */}
+        <div className="pointer-events-none absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded bg-bg-base/90 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-secondary backdrop-blur">
+          <Info className="h-2.5 w-2.5" />
+          Example photo
+        </div>
       </div>
 
       {/* Gallery thumbnails (if more than one photo) */}
@@ -171,10 +183,7 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
         </Tag2>
       </div>
 
-      {/* Agent + outbound link.
-          The CTA lands the user on a real Rightmove search for the
-          postcode district + price band — so even though this listing
-          is synthetic, the click yields useful real-world signal.        */}
+      {/* Agent line */}
       {listing.agentName && (
         <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
           <Building2 className="h-3 w-3" />
@@ -182,17 +191,15 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
           <span className="text-ink-secondary">{listing.agentName}</span>
         </div>
       )}
-      {listing.propertyUrl && (
-        <a
-          href={listing.propertyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-bg-base hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-panel"
-          title="Open Rightmove search for comparable listings in this postcode + price band"
-        >
-          View comparable on Rightmove
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
+
+      {/* Portal CTAs.
+          Each link lands on a *real* page: real Rightmove for-sale search,
+          real sold-price comparables, real Zoopla / OnTheMarket listings,
+          real Google Street View at the actual coordinates.
+          The synthetic listing surfaces real-world context — it doesn't
+          pretend to be a real listing itself. */}
+      {listing.portals && (
+        <PortalCtas portals={listing.portals} listing={listing} />
       )}
 
       {/* Suitability scorecard */}
@@ -284,6 +291,117 @@ export function PropertyDetail({ listing, result, cellRaw }: Props) {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Portal CTA row. Primary call-to-action is "View on Rightmove" (the largest
+ * portal); below it sit a Street View card + a compact grid of secondary
+ * portal links. Phase 2 will hoist one of these to point at the specific
+ * real listing once portal partnerships exist.
+ */
+function PortalCtas({
+  portals,
+  listing,
+}: {
+  portals: Listing['portals']
+  listing: Listing
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Primary — for-sale comparables on Rightmove */}
+      <a
+        href={portals.rightmoveSearch}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-bg-base hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-panel"
+        title={`Real Rightmove search: ${listing.beds}-bed in ${listing.postcode.split(' ')[0]} at ~${formatGBP(listing.price, { short: true })}`}
+      >
+        View comparable on Rightmove
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+
+      {/* Secondary — Street View card. Visually emphasised because it's the
+          closest the user gets to a "real photo of this place" — actual
+          imagery of the actual street at the listing's coordinates. */}
+      <a
+        href={portals.googleStreetView}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-center gap-3 rounded-md border border-border bg-bg-subtle px-3 py-2 transition-colors hover:border-accent hover:bg-bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        title="Open Google Street View at this property's coordinates — real imagery of the actual street"
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-bg-base text-accent group-hover:bg-accent group-hover:text-bg-base">
+          <Eye className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1 text-sm text-ink-primary">
+            Open Street View
+            <ExternalLink className="h-3 w-3 text-ink-muted" />
+          </div>
+          <div className="truncate text-[11px] text-ink-muted">
+            Real imagery at {listing.lat.toFixed(4)}, {listing.lng.toFixed(4)}
+          </div>
+        </div>
+      </a>
+
+      {/* Tertiary — secondary portals (sold prices + other portals + maps) */}
+      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+        <PortalChip
+          href={portals.rightmoveSoldPrices}
+          label="Rightmove sold prices"
+          title="Sold prices in this postcode district — real comparables"
+        />
+        <PortalChip
+          href={portals.zooplaSearch}
+          label="Zoopla"
+          title="Zoopla for-sale search for this postcode + price band"
+        />
+        <PortalChip
+          href={portals.onTheMarket}
+          label="OnTheMarket"
+          title="OnTheMarket for-sale search for this postcode district"
+        />
+        <PortalChip
+          href={portals.googleMaps}
+          label="Open in Google Maps"
+          title="Open the actual coordinates in Google Maps"
+          icon={<Navigation className="h-3 w-3" />}
+        />
+      </div>
+
+      <p className="mt-1 flex items-center gap-1 text-[10px] text-ink-muted">
+        <Info className="h-2.5 w-2.5 shrink-0" />
+        Listings in Phase 1 are synthetic; the portal links land on real
+        comparable properties and Street View shows the actual street.
+      </p>
+    </div>
+  )
+}
+
+function PortalChip({
+  href,
+  label,
+  title,
+  icon,
+}: {
+  href: string
+  label: string
+  title?: string
+  icon?: React.ReactNode
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={title}
+      className="inline-flex items-center justify-center gap-1 rounded-md border border-border bg-bg-subtle px-2 py-1.5 text-ink-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+    >
+      {icon}
+      <span className="truncate">{label}</span>
+      <ExternalLink className="h-3 w-3 shrink-0 text-ink-muted" />
+    </a>
   )
 }
 

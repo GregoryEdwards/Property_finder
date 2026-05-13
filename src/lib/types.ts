@@ -113,18 +113,40 @@ export type EPCBand = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
 export type CouncilTaxBand = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H'
 
 /**
+ * Outbound portal URLs for a listing. Every URL lands the user on a *real,
+ * useful* page — synthetic listings, real comparables.
+ *
+ * Built at seed time by `src/lib/propertyUrl.ts#buildPortalUrls`. Phase 2
+ * will replace `rightmoveSearch` with a direct deep-link to the listing
+ * once a portal partnership exists; the other URLs remain useful as
+ * cross-portal sanity checks.
+ */
+export interface ListingPortalUrls {
+  /** Rightmove for-sale search, postcode + beds + price band. */
+  rightmoveSearch: string
+  /** Rightmove sold-prices page for the postcode district. */
+  rightmoveSoldPrices: string
+  /** Zoopla for-sale search. */
+  zooplaSearch: string
+  /** OnTheMarket for-sale search. */
+  onTheMarket: string
+  /** Google Maps at the listing coordinates. */
+  googleMaps: string
+  /** Google Street View at the listing coordinates — real imagery of the
+   *  actual street, no API key needed. */
+  googleStreetView: string
+}
+
+/**
  * A UK property listing. Modelled to match the fields that surface on
  * Rightmove / Zoopla; we'll replace synthetic instances with real feeds
  * in Phase 2 once a licensing path is secured.
  *
- * Phase 1.3 additions:
- *   - photos: an ordered set (hero + thumbnails) drawn from the curated
- *     CC0 photo catalog in src/lib/listingPhotos.ts.
- *   - propertyUrl: a *real* Rightmove search URL pre-filled with the
- *     listing's postcode + price + bed range. Clicking it lands the user
- *     on genuine comparable listings — Phase 1 doesn't ship fake listings
- *     as if they were real, it surfaces real ones.
- *   - agentName: synthetic but plausible UK agency name. Phase 2 replaces.
+ * Phase 1.3 added: photos, propertyUrl, agentName.
+ * Phase 1.4 expands propertyUrl into a structured `portals` object so we
+ * can offer multi-portal CTAs and direct the user to real comparables on
+ * Rightmove / Zoopla / OnTheMarket plus real coordinate-anchored Google
+ * Maps + Street View.
  */
 export interface Listing {
   id: string
@@ -152,10 +174,14 @@ export interface Listing {
   epc: EPCBand
   councilTaxBand: CouncilTaxBand
   daysOnMarket: number
-  /** Ordered photo URLs. photos[0] is the hero; the rest are gallery thumbs. */
+  /** Ordered photo URLs. photos[0] is the hero; the rest are gallery thumbs.
+   *  Phase 1 uses curated Unsplash CC0 photos as examples — they are
+   *  *not* photos of the specific property. PropertyDetail surfaces this
+   *  honestly via a caption. */
   photos: string[]
-  /** Outbound URL to a real Rightmove search page for comparable properties. */
-  propertyUrl: string
+  /** Outbound portal deep-links — real Rightmove / Zoopla / OnTheMarket
+   *  searches plus Google Maps and Street View at the actual coordinates. */
+  portals: ListingPortalUrls
   /** Synthetic agency name. */
   agentName: string
 }
