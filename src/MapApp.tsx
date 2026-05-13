@@ -16,12 +16,25 @@ export default function MapApp() {
   const rightOpen = useUIStore((s) => s.rightPanelOpen)
   const setSelectedH3 = useUIStore((s) => s.setSelectedH3)
   const setSelectedListingId = useUIStore((s) => s.setSelectedListingId)
+  const setSelectedPinnedId = useUIStore((s) => s.setSelectedPinnedId)
+  const setPinDropMode = useUIStore((s) => s.setPinDropMode)
   const activeRegionId = useRegionStore((s) => s.activeRegionId)
 
+  // Clear all selections + cancel pin-drop on region change. Stale ids
+  // from another region would otherwise scroll the results panel to
+  // entries that aren't on the visible map.
   useEffect(() => {
     setSelectedH3(null)
     setSelectedListingId(null)
-  }, [activeRegionId, setSelectedH3, setSelectedListingId])
+    setSelectedPinnedId(null)
+    setPinDropMode(false)
+  }, [
+    activeRegionId,
+    setSelectedH3,
+    setSelectedListingId,
+    setSelectedPinnedId,
+    setPinDropMode,
+  ])
 
   return (
     <div className="flex h-screen w-screen flex-col bg-bg-base">

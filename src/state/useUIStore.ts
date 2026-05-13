@@ -5,7 +5,7 @@ import { create } from 'zustand'
 
 export type BasemapId = 'dark' | 'light' | 'satellite'
 export type PriorityView = 'slider' | 'rank'
-export type RightTab = 'inspect' | 'listings' | 'favourites'
+export type RightTab = 'inspect' | 'listings' | 'favourites' | 'pinned'
 
 interface UIState {
   /** H3 index of the currently-selected cell (drives the explanation popover). */
@@ -15,6 +15,21 @@ interface UIState {
   /** The listing the user opened from the map or the right panel. */
   selectedListingId: string | null
   setSelectedListingId: (id: string | null) => void
+
+  /** A pinned property selected on the map or in the Pinned tab. */
+  selectedPinnedId: string | null
+  setSelectedPinnedId: (id: string | null) => void
+
+  /** While true, the next map click drops a pin at that coordinate
+   *  instead of selecting whatever is under the cursor. The MapView
+   *  click handler reads this flag. */
+  pinDropMode: boolean
+  setPinDropMode: (v: boolean) => void
+
+  /** Coordinates of the last map-drop, awaiting form completion.
+   *  Cleared once the form saves or the user cancels. */
+  pendingPinDrop: { lat: number; lng: number } | null
+  setPendingPinDrop: (v: { lat: number; lng: number } | null) => void
 
   /** Opacity 0..1 for the suitability heatmap overlay. */
   heatmapOpacity: number
@@ -49,11 +64,36 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   selectedH3: null,
-  setSelectedH3: (h3) => set({ selectedH3: h3, selectedListingId: null }),
+  setSelectedH3: (h3) =>
+    set({
+      selectedH3: h3,
+      selectedListingId: null,
+      selectedPinnedId: null,
+    }),
 
   selectedListingId: null,
   setSelectedListingId: (id) =>
-    set({ selectedListingId: id, rightTab: id ? 'inspect' : 'inspect' }),
+    set({
+      selectedListingId: id,
+      selectedPinnedId: null,
+      rightTab: 'inspect',
+    }),
+
+  selectedPinnedId: null,
+  setSelectedPinnedId: (id) =>
+    set((s) => ({
+      selectedPinnedId: id,
+      selectedListingId: null,
+      // Open the Pinned tab when a pin is selected so its detail is
+      // immediately visible. Don't change tabs on clear.
+      rightTab: id ? ('pinned' as const) : s.rightTab,
+    })),
+
+  pinDropMode: false,
+  setPinDropMode: (v) => set({ pinDropMode: v }),
+
+  pendingPinDrop: null,
+  setPendingPinDrop: (v) => set({ pendingPinDrop: v }),
 
   heatmapOpacity: 0.6,
   setHeatmapOpacity: (v) => set({ heatmapOpacity: v }),

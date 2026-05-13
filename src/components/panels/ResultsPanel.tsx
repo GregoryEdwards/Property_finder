@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { Eye, Heart, Home, Loader2 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Eye, Heart, Home, Loader2, Pin } from 'lucide-react'
 import { useActiveRegionData } from '@/data/useActiveRegionData'
 import { CRITERIA } from '@/lib/catalog'
 import { scoreCells, indexByH3 } from '@/lib/suitability'
@@ -7,26 +7,40 @@ import { listingSuitability } from '@/lib/listings'
 import { useProfileStore } from '@/state/useProfileStore'
 import { useUIStore } from '@/state/useUIStore'
 import { useFavouritesStore } from '@/state/useFavoritesStore'
+import { usePinnedStore } from '@/state/usePinnedStore'
 import { ExplanationCard } from './ExplanationCard'
 import { PropertyDetail } from './PropertyDetail'
 import { ListingsList } from './ListingsList'
 import { RankedList } from './RankedList'
+import { PinnedList } from './PinnedList'
+import { PinnedDetail } from './PinnedDetail'
+import { AddPinnedForm } from './AddPinnedForm'
 import { ErrorBoundary } from '@/components/util/ErrorBoundary'
 import { cn } from '@/lib/utils'
 
 /**
- * Right panel — three tabs: Inspect / Listings / Favourites.
+ * Right panel — four tabs: Inspect / Listings / Favourites / Pinned.
  *
  * Pulls cells + listings via the active-region hook, so it automatically
- * refreshes when the user switches metros from the top bar.
+ * refreshes when the user switches metros. The Pinned tab reads from
+ * `usePinnedStore` (persisted to localStorage) and overlays a Suitability
+ * score from the active region's resultsByH3.
  */
 export function ResultsPanel() {
   const profile = useProfileStore()
   const selectedH3 = useUIStore((s) => s.selectedH3)
   const selectedListingId = useUIStore((s) => s.selectedListingId)
+  const selectedPinnedId = useUIStore((s) => s.selectedPinnedId)
   const rightTab = useUIStore((s) => s.rightTab)
   const setRightTab = useUIStore((s) => s.setRightTab)
+  const pendingPinDrop = useUIStore((s) => s.pendingPinDrop)
   const favouriteListingIds = useFavouritesStore((s) => s.favouriteListingIds)
+  const pins = usePinnedStore((s) => s.pins)
+
+  // Whether the AddPinnedForm is open. Auto-opens when MapView delivers a
+  // pin-drop via the UI store so the user lands in the form on completion.
+  const [addingPin, setAddingPin] = useState(false)
+  if (pendingPinDrop && !addingPin) setAddingPin(true)
 
   const { cells, listings, isLoading, hasError, region } = useActiveRegionData()
 
@@ -48,6 +62,12 @@ export function ResultsPanel() {
   const selectedListingResult = selectedListing
     ? resultsByH3.get(selectedListing.h3)
     : undefined
+  const selectedPin = selectedPinnedId
+    ? pins.find((p) => p.id === selectedPinnedId)
+    : undefined
+  const selectedPinResult = selectedPin?.h3
+    ? resultsByH3.get(selectedPin.h3) ?? null
+    : null
 
   return (
     <aside
@@ -82,6 +102,12 @@ export function ResultsPanel() {
           icon={<Heart className="h-3.5 w-3.5" />}
           label={`Favourites${favouriteListingIds.length ? ` (${favouriteListingIds.length})` : ''}`}
         />
+        <TabButton
+          active={rightTab === 'pinned'}
+          onClick={() => setRightTab('pinned')}
+          icon={<Pin className="h-3.5 w-3.5" />}
+          label={`Pinned${pins.length ? ` (${pins.length})` : ''}`}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -101,10 +127,6 @@ export function ResultsPanel() {
         {rightTab === 'inspect' && cells.length > 0 && (
           <>
             {selectedListing && selectedListingCell && selectedListingResult ? (
-              // Isolate render-time failures so a broken widget inside
-              // PropertyDetail (e.g. a third-party iframe blowing up) can
-              // never blank the whole right panel. The key resets the
-              // boundary on listing switch.
               <ErrorBoundary
                 key={selectedListing.id}
                 label="property detail"
@@ -139,6 +161,25 @@ export function ResultsPanel() {
             resultsByH3={resultsByH3}
             onlyFavourites
           />
+        )}
+
+        {rightTab === 'pinned' && (
+          <>
+            {addingPin ? (
+              <ErrorBoundary label="add-pin form">
+                <AddPinnedForm onClose={() => setAddingPin(false)} />
+              </ErrorBoundary>
+            ) : selectedPin ? (
+              <ErrorBoundary key={selectedPin.id} label="pinned property">
+                <PinnedDetail pin={selectedPin} result={selectedPinResult} />
+              </ErrorBoundary>
+            ) : (
+              <PinnedList
+                resultsByH3={resultsByH3}
+                onAdd={() => setAddingPin(true)}
+              />
+            )}
+          </>
         )}
       </div>
     </aside>

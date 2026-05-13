@@ -55,3 +55,30 @@ export const REGIONS_BY_ID: Record<string, RegionMeta> = Object.fromEntries(
 )
 
 export const DEFAULT_REGION_ID = REGIONS[0].id
+
+/**
+ * Determine which region (if any) a lat/lng coordinate falls into.
+ *
+ * Used by `usePinnedStore.addPin` to tag a pinned property with the
+ * region whose seed dataset can score it. A coordinate outside every
+ * region's bbox returns `null` — the pin is still kept but rendered as
+ * "outside supported regions" in the list.
+ *
+ * If a coordinate sits in multiple region bboxes (regions can overlap
+ * at their fringes), the first matching region in `REGIONS` array order
+ * wins. The array is intentionally ordered by population/priority.
+ */
+export function regionForCoords(lat: number, lng: number): string | null {
+  for (const r of REGIONS) {
+    const { bbox } = r
+    if (
+      lat >= bbox.south &&
+      lat <= bbox.north &&
+      lng >= bbox.west &&
+      lng <= bbox.east
+    ) {
+      return r.id
+    }
+  }
+  return null
+}

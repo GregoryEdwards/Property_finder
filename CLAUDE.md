@@ -36,7 +36,9 @@ src/
                            ListingsFilterBar (sort/price/beds/EPC/type/tenure/viewport)
                            PropertyDetail's PortalCtas carries the Street
                            View card + Rightmove/Zoopla/OTM links
+                           Pinned tab: PinnedList / PinnedDetail / AddPinnedForm
     util/                  ErrorBoundary (class-based subtree guard)
+    map/                   MapView, basemaps, PinDropToggle, ListingsToggle, …
     methodology/           MethodologyIndex, CriterionDetailPage, MethodologyLayout
     ui/                    Slider, Checkbox, IconButton  ← reuse before adding
   data/                    loader.ts (TanStack Query hooks), useActiveRegionData
@@ -44,17 +46,19 @@ src/
   lib/
     catalog.ts             18 criterion definitions + 5 persona presets
     methodology.ts         authored prose + cited sources per criterion
-    regions.ts             region registry (id → metadata + asset URLs)
+    regions.ts             region registry + regionForCoords helper
     suitability.ts         normalised WLC + hard-constraint masking
     standardize.ts         shared raw → 0..100 transform (seed + runtime)
-    listings.ts            per-property suitability + price banding
+    listings.ts            per-property suitability + price banding +
+                           resolveListingPortals() runtime fallback
     listingPhotos.ts       curated Unsplash photo catalog + photosForSeed()
     propertyUrl.ts         Rightmove search URL builder + AGENT_POOL
+    geocode.ts             postcodes.io lookup + reverse-lookup
     colorRamp.ts           Viridis sampler (color-blind safe)
     types.ts               domain types
     utils.ts               cn(), formatGBP(), epcColor(), formatRaw()
-  state/                   Zustand stores (Profile + UI + Region + Favourites
-                           + ListingsFilter)
+  state/                   Zustand stores (Profile + UI + Region +
+                           Favourites + ListingsFilter + Pinned)
 public/data/regions/       region seed JSON (lazy fetched at runtime)
 scripts/                   per-region seed generators + shared listings factory
 docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
@@ -125,6 +129,12 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
 - **ErrorBoundary**: any third-party-prone subtree (PropertyDetail in
   particular) should be wrapped in `@/components/util/ErrorBoundary` so a
   failure becomes a recoverable error UI rather than a blank panel.
+- **Pinned properties** (user-added homes the buyer found elsewhere) live
+  in their own subsystem, parallel to listings. The data is in
+  `usePinnedStore` (persisted to localStorage), region-tagged and
+  H3-indexed at save time so scoring is `resultsByH3.get(pin.h3)`. Two
+  entry paths: postcode lookup (postcodes.io) or click-to-pin on the
+  map. See `docs/PINNED.md` for the full subsystem.
 - **Synthetic-listing disclosure**: PropertyDetail's banner makes the
   "demo listing" framing explicit, and the CTA labels read as searches
   ("Find real listings on Rightmove") rather than portal names. See
@@ -140,6 +150,9 @@ work, they're written to be self-contained:
 - `.claude/skills/add-region/SKILL.md` — add a new metro / region.
 - `.claude/skills/work-with-listings/SKILL.md` — change anything in the
   listings stack (new filter, new field, photo catalog edits, URL builder).
+- `.claude/skills/work-with-pinned-properties/SKILL.md` — change anything
+  in the user-pinned-properties stack (add a field, swap geocoder, tweak
+  pin visuals, add a real-portal URL).
 - `.claude/skills/release-pr/SKILL.md` — pre-PR checklist.
 
 ## Gotchas

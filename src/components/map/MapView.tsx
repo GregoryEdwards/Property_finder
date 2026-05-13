@@ -12,11 +12,14 @@ import { priceBand } from '@/lib/listings'
 import { useProfileStore } from '@/state/useProfileStore'
 import { useUIStore } from '@/state/useUIStore'
 import { useListingsFilterStore } from '@/state/useListingsFilterStore'
+import { usePinnedStore } from '@/state/usePinnedStore'
+import { useRegionStore } from '@/state/useRegionStore'
 import { basemapStyle } from './basemaps'
 import { Legend } from './Legend'
 import { ListingsToggle } from './ListingsToggle'
+import { PinDropToggle } from './PinDropToggle'
 import { MapLoadingOverlay } from './MapLoadingOverlay'
-import type { CellSuitability, Listing } from '@/lib/types'
+import type { CellSuitability, Listing, PinnedProperty } from '@/lib/types'
 import type { PickingInfo } from '@deck.gl/core'
 
 interface MinimalViewState {
@@ -48,11 +51,25 @@ export function MapView() {
   const profile = useProfileStore()
   const setSelectedH3 = useUIStore((s) => s.setSelectedH3)
   const setSelectedListingId = useUIStore((s) => s.setSelectedListingId)
+  const setSelectedPinnedId = useUIStore((s) => s.setSelectedPinnedId)
   const selectedH3 = useUIStore((s) => s.selectedH3)
   const selectedListingId = useUIStore((s) => s.selectedListingId)
+  const selectedPinnedId = useUIStore((s) => s.selectedPinnedId)
   const heatmapOpacity = useUIStore((s) => s.heatmapOpacity)
   const basemap = useUIStore((s) => s.basemap)
   const showListings = useUIStore((s) => s.showListings)
+  const pinDropMode = useUIStore((s) => s.pinDropMode)
+  const setPinDropMode = useUIStore((s) => s.setPinDropMode)
+  const setPendingPinDrop = useUIStore((s) => s.setPendingPinDrop)
+
+  // Pinned properties read from the persisted store, filtered to the
+  // active region so off-region pins don't litter the map.
+  const allPins = usePinnedStore((s) => s.pins)
+  const activeRegionId = useRegionStore((s) => s.activeRegionId)
+  const pinnedInRegion = useMemo(
+    () => allPins.filter((p) => p.regionId === activeRegionId),
+    [allPins, activeRegionId],
+  )
 
   const { region, cells, listings, isLoading, hasError, cellCount } =
     useActiveRegionData()
@@ -99,6 +116,22 @@ export function MapView() {
       transitionInterpolator: new FlyToInterpolator({ speed: 1.6 }),
     }))
   }, [selectedListingId, listings])
+
+  // Same fly-to for a selected pinned property — drives the right-panel
+  // PinnedDetail selection from the map.
+  useEffect(() => {
+    if (!selectedPinnedId) return
+    const pin = allPins.find((p) => p.id === selectedPinnedId)
+    if (!pin) return
+    setViewState((prev) => ({
+      ...prev,
+      longitude: pin.lng,
+      latitude: pin.lat,
+      zoom: Math.max(prev.zoom, 14),
+      transitionDuration: 900,
+      transitionInterpolator: new FlyToInterpolator({ speed: 1.6 }),
+    }))
+  }, [selectedPinnedId, allPins])
 
   // Track container dimensions for viewport-bounds computation. Used by
   // the "in view only" listings filter. ResizeObserver because the panels
@@ -196,12 +229,27 @@ export function MapView() {
 
   const handleClick = useCallback(
     (info: PickingInfo) => {
+      // Pin-drop mode short-circuits everything: capture the click
+      // coordinate, exit the mode, and let the right panel pick up
+      // `pendingPinDrop` to open AddPinnedForm.
+      if (pinDropMode) {
+        const c = info.coordinate
+        if (c && c.length >= 2) {
+          setPendingPinDrop({ lng: c[0], lat: c[1] })
+          setPinDropMode(false)
+        }
+        return
+      }
       if (!info.object) {
         setSelectedH3(null)
         setSelectedListingId(null)
+        setSelectedPinnedId(null)
         return
       }
-      if (info.layer?.id === 'listings') {
+      if (info.layer?.id === 'pinned-properties') {
+        const p = info.object as PinnedProperty
+        setSelectedPinnedId(p.id)
+      } else if (info.layer?.id === 'listings') {
         const l = info.object as Listing
         setSelectedListingId(l.id)
       } else if (info.layer?.id === 'suitability-hex') {
@@ -209,7 +257,14 @@ export function MapView() {
         setSelectedH3(o.h3)
       }
     },
-    [setSelectedH3, setSelectedListingId],
+    [
+      pinDropMode,
+      setSelectedH3,
+      setSelectedListingId,
+      setSelectedPinnedId,
+      setPinDropMode,
+      setPendingPinDrop,
+    ],
   )
 
   const layers = useMemo(() => {
@@ -235,9 +290,35 @@ export function MapView() {
       },
     })
 
-    if (!showListings) return [hex]
+    // User-pinned properties layer.
+    // Distinct from `listings` visually: violet fill (vs white/yellow for
+    // listings), slightly larger radius, drawn ABOVE listings so the
+    // user's own pins are never visually overrun by synthetic ones.
+    const pinnedLayer = new ScatterplotLayer<PinnedProperty>({
+      id: 'pinned-properties',
+      data: pinnedInRegion,
+      getPosition: (p) => [p.lng, p.lat],
+      getRadius: (p) => (p.id === selectedPinnedId ? 10 : 7),
+      radiusUnits: 'pixels',
+      getFillColor: (p) =>
+        p.id === selectedPinnedId
+          ? [253, 231, 36, 255] // accent yellow when selected
+          : [167, 100, 220, 240], // violet otherwise — visually distinct from listings
+      getLineColor: [11, 15, 23, 255],
+      lineWidthUnits: 'pixels',
+      getLineWidth: (p) => (p.id === selectedPinnedId ? 2.5 : 1.5),
+      stroked: true,
+      pickable: true,
+      updateTriggers: {
+        getFillColor: [selectedPinnedId, pinnedInRegion],
+        getRadius: [selectedPinnedId],
+        getLineWidth: [selectedPinnedId],
+      },
+    })
 
-    const pins = new ScatterplotLayer<(typeof listingData)[number]>({
+    if (!showListings) return [hex, pinnedLayer]
+
+    const listingsLayer = new ScatterplotLayer<(typeof listingData)[number]>({
       id: 'listings',
       data: listingData,
       getPosition: (l) => [l.lng, l.lat],
@@ -260,7 +341,8 @@ export function MapView() {
       },
     })
 
-    return [hex, pins]
+    // Order matters: listings under pinned so user pins always sit on top.
+    return [hex, listingsLayer, pinnedLayer]
   }, [
     layerData,
     opacityByte,
@@ -268,6 +350,8 @@ export function MapView() {
     selectedListingId,
     listingData,
     showListings,
+    pinnedInRegion,
+    selectedPinnedId,
   ])
 
   return (
@@ -280,16 +364,24 @@ export function MapView() {
         controller={true}
         layers={layers}
         onClick={handleClick}
-        getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'grab')}
+        getCursor={({ isHovering }) =>
+          pinDropMode ? 'crosshair' : isHovering ? 'pointer' : 'grab'
+        }
       >
         <Map mapStyle={basemapStyle(basemap)} reuseMaps />
       </DeckGL>
       <Legend />
       <ListingsToggle />
+      <PinDropToggle />
       <div className="pointer-events-none absolute right-3 top-3 rounded-md bg-bg-panel/85 px-2 py-1 text-[10px] uppercase tracking-wider text-ink-muted shadow backdrop-blur">
         {region.displayName} ·{' '}
         {(cellCount || cells.length).toLocaleString()} cells · H3 res 8
       </div>
+      {pinDropMode && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-md bg-accent/95 px-3 py-1.5 text-xs font-semibold text-bg-base shadow backdrop-blur">
+          Click anywhere on the map to drop a pin
+        </div>
+      )}
       {(isLoading || hasError) && (
         <MapLoadingOverlay
           isLoading={isLoading}

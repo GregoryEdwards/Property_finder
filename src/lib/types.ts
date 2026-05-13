@@ -198,6 +198,52 @@ export interface PropertySuitability {
   contributions: Contribution[]
 }
 
+// ─── Pinned properties (user-added) ──────────────────────────────────────
+
+/**
+ * A property the user has saved themselves — typically one they found on
+ * Rightmove / Zoopla / OnTheMarket and want to score against their
+ * profile.
+ *
+ * Pinned properties are *user-owned data*. They live in `localStorage`
+ * (see `usesPinnedStore`) and never sync to the seed JSON. Scoring is the
+ * same WLC pipeline as everything else: the pin's `h3` cell looks up its
+ * composite score from the active region's `resultsByH3`.
+ *
+ * `regionId` is captured at save time by `regionForCoords()` so we know
+ * which region's dataset can score this pin. A pin outside any supported
+ * region is still kept (regionId = null) but shows in the list as
+ * "outside supported regions" with no score.
+ */
+export interface PinnedProperty {
+  /** UUID v4 generated at save time. */
+  id: string
+  /** User-given short name, e.g. "Notting Hill 2-bed". */
+  name: string
+  /** Coordinates — from postcode geocoding OR the user's map click. */
+  lat: number
+  lng: number
+  /** H3 cell at the same resolution as the seed data (8). Computed at
+   *  save time so scoring is O(1). May be null if outside any region. */
+  h3: H3Index | null
+  /** Region id from `regionForCoords()` at save time. Null if outside
+   *  any supported region. */
+  regionId: string | null
+  /** UK postcode — either typed by the user or reverse-looked-up. */
+  postcode?: string
+  /** Rightmove / Zoopla / OTM URL the user copied in. */
+  externalUrl?: string
+  price?: number
+  beds?: number
+  propertyType?: Listing['propertyType']
+  /** Free-text notes. */
+  notes?: string
+  /** ISO 8601 timestamp set on creation. */
+  addedAt: string
+  /** ISO 8601 timestamp of the last edit (kept for sort-by-recent). */
+  updatedAt: string
+}
+
 // ─── Region/seed metadata ────────────────────────────────────────────────
 
 export interface RegionAnchor {

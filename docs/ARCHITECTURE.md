@@ -260,6 +260,14 @@ the PR description.
   already covers the "show me where this is" need, so the duplicate
   embedded map was just visual noise. The Street View deep-link is
   promoted to a prominent card directly above the portal CTAs.
+- **Phase 1.6** (`feat/pinned-properties`): new user-owned subsystem.
+  The buyer pins properties they've found elsewhere (Rightmove, Zoopla,
+  OnTheMarket) via postcode lookup or click-to-pin on the map; pins are
+  H3-indexed and region-tagged at save time, persisted to localStorage,
+  and scored by the same WLC engine as listings and cells. New right-
+  panel tab "Pinned" with list + detail + add-form views; new
+  `PinDropToggle` floating button. Postcode geocoding via postcodes.io
+  (free, no API key). See `docs/PINNED.md`.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.
