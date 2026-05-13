@@ -1,12 +1,20 @@
 /**
- * Phase 1 dataset loader.
+ * Region data loader — async, region-aware.
  *
- * Static import of the Greater London cell + listings seed files. Replace
- * with TanStack Query against `/api/v1/suitability/cells` and
- * `/api/v1/listings` in Phase 2 when the backend lands.
+ * Phase 1.1 moves seed JSON out of the JS bundle and serves it as static
+ * assets from /public/data/regions/. This lets us add regions without
+ * inflating the initial bundle, and lets the browser cache them per-region.
+ *
+ * We use TanStack Query for caching + revalidation so each region's data
+ * is fetched at most once per session and the React layer gets clean
+ * loading / error states.
+ *
+ * Phase 2 swaps these fetches for `/api/v1/regions/<id>/cells` and
+ * `/api/v1/regions/<id>/listings` against the backend — the React-side
+ * interface stays the same.
  */
-import seedRaw from './london-seed.json'
-import listingsRaw from './london-listings.json'
+import { useQuery } from '@tanstack/react-query'
+import { REGIONS_BY_ID } from '@/lib/regions'
 import type { CellScores, Listing, SeedFile } from '@/lib/types'
 
 interface ListingsFile {
@@ -17,20 +25,42 @@ interface ListingsFile {
   listings: Listing[]
 }
 
-export const SEED: SeedFile = seedRaw as unknown as SeedFile
-export const LISTINGS_FILE: ListingsFile = listingsRaw as unknown as ListingsFile
-
-export function getCells(): CellScores[] {
-  return SEED.cells
+/** Fetch helper that decodes JSON and surfaces useful errors. */
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { cache: 'force-cache' })
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`)
+  }
+  return (await res.json()) as T
 }
 
-export function getListings(): Listing[] {
-  return LISTINGS_FILE.listings
+/** Cells for a given region. */
+export function useRegionCells(regionId: string) {
+  const meta = REGIONS_BY_ID[regionId]
+  return useQuery({
+    queryKey: ['cells', regionId],
+    queryFn: () => fetchJson<SeedFile>(meta!.cellsUrl),
+    enabled: !!meta,
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 30,
+  })
 }
 
-/** Build an H3 → cell lookup for fast point→cell joins. */
-export function getCellsByH3(): Map<string, CellScores> {
+/** Listings for a given region. */
+export function useRegionListings(regionId: string) {
+  const meta = REGIONS_BY_ID[regionId]
+  return useQuery({
+    queryKey: ['listings', regionId],
+    queryFn: () => fetchJson<ListingsFile>(meta!.listingsUrl),
+    enabled: !!meta,
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 30,
+  })
+}
+
+/** Build an H3 → cell lookup for fast point-in-cell joins. */
+export function buildCellsByH3(cells: CellScores[]): Map<string, CellScores> {
   const m = new Map<string, CellScores>()
-  for (const c of SEED.cells) m.set(c.h3, c)
+  for (const c of cells) m.set(c.h3, c)
   return m
 }

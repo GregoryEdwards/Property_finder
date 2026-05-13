@@ -5,10 +5,12 @@
 > A&E access, price, crime, air quality), and the app continuously surfaces
 > the best zones on a map — alongside the live listings inside them.
 
-**Phase 1 · Greater London**.
-The 15 default criteria, persona presets, and listings are tuned for the
-UK property market. The launch metro is Greater London (~M25); the same
-engine extends to any UK metro by swapping the seed dataset.
+**Phase 1.1 · Greater London + West Midlands**.
+17 default criteria, persona presets, and Rightmove-style listings tuned
+for the UK property market. Two launch regions today (Greater London,
+West Midlands conurbation); adding more is a registry entry + a seed
+generator — the runtime fetches each region's data on demand from
+`/data/regions/*` rather than bundling it.
 
 ---
 
@@ -24,16 +26,31 @@ Move the priority sliders or drag-to-rank on the left, watch the heatmap
 redraw in real time, click a hex or a listing pin to inspect, save the
 ones you like.
 
-## What's new in Phase 1
+## What's new
 
-- **UK criterion catalog (15 criteria)** — flood risk (EA bands), Ofsted
-  primary + secondary, NHS A&E and GP access, DEFRA NO₂, DEFRA road noise,
-  Ofcom broadband, TfL PTAL, council tax band, Land Registry median price,
-  commute to anchor, crime (police.uk), green space, fire-rescue response.
-- **Greater London seed dataset** — 4,400+ H3 cells at resolution 8 across
-  the M25, with spatially coherent synthetic values that respect the
-  Thames flood corridor, central commute decay, prime-area price bumps,
-  and PTAL ring structure.
+### Phase 1.1
+- **Multi-region architecture.** Seed JSON moved out of the JS bundle and
+  served from `/public/data/regions/<id>.cells.json` (+ `.listings.json`).
+  TanStack Query fetches per-region data once per session and caches it.
+  Result: initial JS payload **dropped from ~3.3 MB → ~140 KB**, and
+  adding a new region no longer inflates the bundle.
+- **Region picker** in the top bar. Map flies smoothly to the new anchor;
+  selections from the previous region are cleared.
+- **West Midlands** as a second launch region (~5,000 H3 cells covering
+  Birmingham, Wolverhampton, Walsall, Dudley, Sandwell, Solihull,
+  Coventry). Spatial signal baked in for the Tame/Cole/Stour flood
+  corridors, M6/M5/M42 noise + NO₂, central commute decay from Birmingham
+  New Street, Solihull / Sutton Coldfield affluence bias.
+- **Two new criteria**:
+  - **Median annual salary** (ONS ASHE; more is better, linear £22k–£75k).
+  - **Gym / leisure centre access** (walk minutes, fuzzy decay).
+- **Active region store** persisted to `localStorage`.
+
+### Phase 1
+- **UK criterion catalog** — flood risk (EA bands), Ofsted primary + secondary,
+  NHS A&E and GP access, DEFRA NO₂, DEFRA road noise, Ofcom broadband,
+  TfL PTAL, council tax band, Land Registry median price, commute to
+  anchor, crime (police.uk), green space, fire-rescue response.
 - **Drag-to-rank weights view** — alternative to sliders, with weights
   derived via the rank-reciprocal scheme. Tab-switchable.
 - **Synthetic UK property listings** — Rightmove-style fields (tenure,
@@ -73,9 +90,10 @@ ones you like.
 │    Normalised weighted linear combination over per-cell scores; │
 │    cells violating any hard constraint are masked, not coloured.│
 │                                                                 │
-│  Data (Phase 1: static; Phase 2: API)                           │
-│    src/data/london-seed.json     ~4.4k H3 cells × 15 criteria   │
-│    src/data/london-listings.json 240 synthetic UK listings      │
+│  Data (Phase 1.1: static assets, fetched per region)            │
+│    public/data/regions/<id>.cells.json     fetched on switch    │
+│    public/data/regions/<id>.listings.json  fetched on switch    │
+│    Cache: TanStack Query (staleTime: Infinity per session)      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -98,11 +116,11 @@ src/
                   └─ RankedList       (top cells fallback)
     ui/           Slider, Checkbox, IconButton
   data/
-    london-seed.json       static H3 dataset
-    london-listings.json   static UK listings
-    loader.ts              accessor + cell↔h3 lookup
+    loader.ts              TanStack Query hooks per region (cells + listings)
+    useActiveRegionData.ts composite hook used by Map and ResultsPanel
   lib/
-    catalog.ts             15 UK criterion definitions + 5 presets
+    catalog.ts             17 UK criterion definitions + 5 presets
+    regions.ts             multi-region registry (London + West Midlands)
     suitability.ts         runtime WLC + constraint masking
     standardize.ts         shared raw→0..100 transform
     listings.ts            per-property suitability + price banding
@@ -112,13 +130,31 @@ src/
   state/
     useProfileStore.ts     persisted profile
     useFavoritesStore.ts   persisted favourites + saved profiles
+    useRegionStore.ts      persisted active region id
     useUIStore.ts          ephemeral UI
+public/
+  data/regions/
+    greater-london.cells.json    + .listings.json
+    west-midlands.cells.json     + .listings.json
 scripts/
-  generate-london-seed.ts      deterministic synthetic London dataset
-  generate-london-listings.ts  synthetic Rightmove-style listings
+  generate-london-seed.ts        + listings
+  generate-west-midlands-seed.ts + listings
+  lib/listings-generator.ts      shared synthetic-listings factory
 docs/
   data-sources-uk.md       upstream sources + fair-housing guardrails
 ```
+
+### Adding a new region
+
+1. Write `scripts/generate-<id>-seed.ts` modeled on the WM script. Output
+   to `public/data/regions/<id>.cells.json`.
+2. Write `scripts/generate-<id>-listings.ts` using
+   `scripts/lib/listings-generator.ts`.
+3. Add an entry to `REGIONS` in `src/lib/regions.ts`.
+
+The region picker, async loader, and map auto-recenter pick the new
+region up automatically. The initial bundle does **not** grow because
+region data is fetched only when the region is activated.
 
 ## Suitability engine
 

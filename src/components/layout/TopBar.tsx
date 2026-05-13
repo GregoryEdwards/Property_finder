@@ -1,15 +1,13 @@
 import { Layers, BarChart3, MapPin, Sun, Moon, Satellite, Search } from 'lucide-react'
 import { useUIStore } from '@/state/useUIStore'
+import { useRegionStore } from '@/state/useRegionStore'
+import { REGIONS_BY_ID } from '@/lib/regions'
 import { IconButton } from '@/components/ui/IconButton'
-import { SEED } from '@/data/loader'
+import { RegionPicker } from './RegionPicker'
 import { useState } from 'react'
 
 /**
- * Top bar — search, brand, basemap picker, panel toggles, anchor.
- *
- * Phase 1 adds the postcode search stub. Real geocoding will live behind
- * `/api/v1/geocode` in Phase 2; this version filters listings client-side
- * on a postcode-prefix match.
+ * Top bar — region picker, search stub, basemap controls, panel toggles.
  */
 export function TopBar() {
   const {
@@ -20,6 +18,8 @@ export function TopBar() {
     setLeftPanelOpen,
     setRightPanelOpen,
   } = useUIStore()
+  const activeRegionId = useRegionStore((s) => s.activeRegionId)
+  const region = REGIONS_BY_ID[activeRegionId]
 
   return (
     <header className="flex h-12 items-center justify-between gap-3 border-b border-border bg-bg-panel px-3">
@@ -36,18 +36,17 @@ export function TopBar() {
           <span className="text-sm font-semibold tracking-tight text-ink-primary">
             HomeSite
           </span>
-          <span className="text-[10px] uppercase tracking-wider text-ink-muted">
-            Phase 1 · {SEED.regionDisplayName}
+          <span className="hidden text-[10px] uppercase tracking-wider text-ink-muted sm:inline">
+            Phase 1.1 · UK
           </span>
         </div>
       </div>
 
+      <RegionPicker />
+
       <SearchStub />
 
       <div className="flex items-center gap-1">
-        <span className="mr-2 hidden text-[10px] uppercase tracking-wider text-ink-muted xl:inline">
-          Basemap
-        </span>
         <IconButton
           ariaLabel="Dark basemap"
           active={basemap === 'dark'}
@@ -77,7 +76,7 @@ export function TopBar() {
       <div className="flex items-center gap-2">
         <span className="hidden text-xs text-ink-secondary lg:inline">
           <MapPin className="-mt-0.5 mr-1 inline h-3 w-3" />
-          Anchor: {SEED.anchor.name}
+          Anchor: {region?.anchor.name ?? '—'}
         </span>
         <IconButton
           ariaLabel={rightPanelOpen ? 'Collapse results panel' : 'Expand results panel'}
@@ -92,14 +91,6 @@ export function TopBar() {
   )
 }
 
-/**
- * Lightweight postcode/area search. Phase 1 stub: when the user enters a
- * value, we switch the right panel to the Listings tab and the listings
- * list will filter against this query (read via the UI store in Phase 2).
- *
- * For now it's a visible affordance that primes the user for the feature
- * surface without claiming functionality it doesn't yet have.
- */
 function SearchStub() {
   const [q, setQ] = useState('')
   return (

@@ -9,9 +9,13 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed": "tsx scripts/generate-london-seed.ts && tsx scripts/generate-london-listings.ts",
-    "seed:cells": "tsx scripts/generate-london-seed.ts",
-    "seed:listings": "tsx scripts/generate-london-listings.ts"
+    "seed": "npm run seed:london && npm run seed:wm",
+    "seed:london": "tsx scripts/generate-london-seed.ts && tsx scripts/generate-london-listings.ts",
+    "seed:wm": "tsx scripts/generate-west-midlands-seed.ts && tsx scripts/generate-west-midlands-listings.ts",
+    "seed:cells:london": "tsx scripts/generate-london-seed.ts",
+    "seed:cells:wm": "tsx scripts/generate-west-midlands-seed.ts",
+    "seed:listings:london": "tsx scripts/generate-london-listings.ts",
+    "seed:listings:wm": "tsx scripts/generate-west-midlands-listings.ts"
   },
   "dependencies": {
     "@deck.gl/core": "^9.0.33",

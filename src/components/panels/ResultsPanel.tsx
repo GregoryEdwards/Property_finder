@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
-import { Eye, Heart, Home } from 'lucide-react'
-import { getCells, getListings } from '@/data/loader'
+import { Eye, Heart, Home, Loader2 } from 'lucide-react'
+import { useActiveRegionData } from '@/data/useActiveRegionData'
 import { CRITERIA } from '@/lib/catalog'
 import { scoreCells, indexByH3 } from '@/lib/suitability'
 import { listingSuitability } from '@/lib/listings'
@@ -14,15 +14,10 @@ import { RankedList } from './RankedList'
 import { cn } from '@/lib/utils'
 
 /**
- * Right panel — three tabs:
- *   - Inspect: shows the explanation card / property detail for whatever is
- *     currently selected on the map. Falls back to "top cells" if nothing.
- *   - Listings: filtered & ranked listing list.
- *   - Favourites: saved listings only.
+ * Right panel — three tabs: Inspect / Listings / Favourites.
  *
- * The suitability re-derivation is the single hot path; results memoise
- * against the relevant profile slices so unrelated UI changes don't trigger
- * extra work.
+ * Pulls cells + listings via the active-region hook, so it automatically
+ * refreshes when the user switches metros from the top bar.
  */
 export function ResultsPanel() {
   const profile = useProfileStore()
@@ -32,8 +27,7 @@ export function ResultsPanel() {
   const setRightTab = useUIStore((s) => s.setRightTab)
   const favouriteListingIds = useFavouritesStore((s) => s.favouriteListingIds)
 
-  const cells = useMemo(() => getCells(), [])
-  const listings = useMemo(() => getListings(), [])
+  const { cells, listings, isLoading, hasError, region } = useActiveRegionData()
 
   const results = useMemo(
     () => scoreCells(cells, profile, CRITERIA),
@@ -59,10 +53,13 @@ export function ResultsPanel() {
       className="flex h-full w-96 shrink-0 flex-col border-l border-border bg-bg-panel"
       aria-label="Results"
     >
-      <div className="border-b border-border px-3 py-2">
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-secondary">
           Results
         </h2>
+        <span className="font-mono text-[10px] text-ink-muted">
+          {region.displayName}
+        </span>
       </div>
 
       <div role="tablist" className="flex border-b border-border bg-bg-base">
@@ -76,7 +73,7 @@ export function ResultsPanel() {
           active={rightTab === 'listings'}
           onClick={() => setRightTab('listings')}
           icon={<Home className="h-3.5 w-3.5" />}
-          label={`Listings`}
+          label="Listings"
         />
         <TabButton
           active={rightTab === 'favourites'}
@@ -87,7 +84,20 @@ export function ResultsPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {rightTab === 'inspect' && (
+        {hasError && (
+          <div className="px-3 py-4 text-xs text-red-300">
+            Couldn't load {region.displayName}. The map will populate once the
+            data fetches successfully.
+          </div>
+        )}
+        {isLoading && cells.length === 0 && (
+          <div className="flex items-center gap-2 px-3 py-4 text-xs text-ink-secondary">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Loading {region.displayName}…
+          </div>
+        )}
+
+        {rightTab === 'inspect' && cells.length > 0 && (
           <>
             {selectedListing && selectedListingCell && selectedListingResult ? (
               <PropertyDetail
@@ -109,11 +119,11 @@ export function ResultsPanel() {
           </>
         )}
 
-        {rightTab === 'listings' && (
+        {rightTab === 'listings' && cells.length > 0 && (
           <ListingsList listings={listings} resultsByH3={resultsByH3} />
         )}
 
-        {rightTab === 'favourites' && (
+        {rightTab === 'favourites' && cells.length > 0 && (
           <ListingsList
             listings={listings}
             resultsByH3={resultsByH3}

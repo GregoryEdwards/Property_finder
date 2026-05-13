@@ -30,7 +30,7 @@ import { CRITERIA } from '../src/lib/catalog'
 import { standardize } from '../src/lib/standardize'
 import type { CellScores, SeedFile } from '../src/lib/types'
 
-const SEED_VERSION = 2
+const SEED_VERSION = 3
 
 // Greater London bbox — slightly larger than the M25 for context.
 const LONDON_BBOX = {
@@ -316,6 +316,24 @@ function rawBroadbandSpeed(lat: number, lng: number): number {
   return Math.max(40, Math.min(1000, base + jitter))
 }
 
+function rawMedianSalary(lat: number, lng: number): number {
+  // ONS ASHE median full-time annual gross. London median was ~£44k (2023).
+  // Higher in central/west/SW; lower toward east/outer-east.
+  const dCentre = distKm(lat, lng, CHARING_CROSS.lat, CHARING_CROSS.lng)
+  const westBoost = Math.max(0, (-0.1 - lng) * 60_000)
+  const centralBoost = Math.exp(-dCentre / 7) * 28_000
+  const field = smoothField(lat, lng, 10.4) * 14_000
+  return Math.max(23_000, 32_000 + centralBoost + westBoost * 0.5 + field)
+}
+
+function rawGymAccess(lat: number, lng: number): number {
+  // Walking minutes to nearest gym/leisure centre. Dense in inner London
+  // (PureGym, Virgin Active, council leisure centres), thinner outer ring.
+  const dCentre = distKm(lat, lng, CHARING_CROSS.lat, CHARING_CROSS.lng)
+  const field = smoothField(lat, lng, 11.2)
+  return 3 + field * 9 + Math.max(0, dCentre - 6) * 0.7
+}
+
 function rawPTAL(lat: number, lng: number): number {
   // 0..8 (TfL uses 0..6b; we map 6b → ~8).
   const dCentre = distKm(lat, lng, CHARING_CROSS.lat, CHARING_CROSS.lng)
@@ -357,6 +375,8 @@ function main() {
       noise_road: rawRoadNoise(lat, lng),
       broadband_speed: rawBroadbandSpeed(lat, lng),
       ptal: rawPTAL(lat, lng),
+      median_salary: rawMedianSalary(lat, lng),
+      gym_access: rawGymAccess(lat, lng),
     }
     const scores: Record<string, number> = {}
     for (const c of CRITERIA) {
@@ -382,7 +402,10 @@ function main() {
 
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = dirname(__filename)
-  const outPath = resolve(__dirname, '../src/data/london-seed.json')
+  const outPath = resolve(
+    __dirname,
+    '../public/data/regions/greater-london.cells.json',
+  )
   mkdirSync(dirname(outPath), { recursive: true })
   writeFileSync(outPath, JSON.stringify(out))
   console.log(

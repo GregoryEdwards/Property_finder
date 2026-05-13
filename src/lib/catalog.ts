@@ -220,6 +220,36 @@ export const CRITERIA: CriterionDefinition[] = [
     transform: { type: 'fuzzy_decay', idealMax: 45, acceptableMax: 70, curve: 'linear' },
   },
 
+  // ───── Employment & Economy ────────────────────────────────────────────
+  {
+    id: 'median_salary',
+    displayName: 'Median annual salary',
+    category: 'employment',
+    unit: 'GBP / yr',
+    direction: 'more_is_better',
+    defaultWeight: 4,
+    defaultEnabled: true,
+    description:
+      'ONS ASHE median gross annual salary for full-time residents of this area. Higher figures correlate with employment opportunity and area economic strength.',
+    dataSource: 'ONS Annual Survey of Hours and Earnings (synthetic for Phase 1 demo)',
+    transform: { type: 'linear', min: 22_000, max: 75_000 },
+  },
+
+  // ───── Facilities cont. — gym (kept near other facility criteria) ──────
+  {
+    id: 'gym_access',
+    displayName: 'Gym / leisure centre',
+    category: 'facilities',
+    unit: 'minutes (walk)',
+    direction: 'less_is_better',
+    defaultWeight: 3,
+    defaultEnabled: true,
+    description:
+      'Walking time to the nearest gym, leisure centre, or public swimming pool.',
+    dataSource: 'OSM POIs (leisure=fitness_centre/sports_centre) + local authority registers (synthetic for Phase 1 demo)',
+    transform: { type: 'fuzzy_decay', idealMax: 8, acceptableMax: 25, curve: 'linear' },
+  },
+
   // ───── Infrastructure ──────────────────────────────────────────────────
   {
     id: 'broadband_speed',
@@ -271,6 +301,8 @@ export const PRESETS: Preset[] = [
       secondary_school: 9,
       gp_walk_time: 5,
       green_space: 7,
+      gym_access: 4,
+      median_salary: 4,
       median_price: 5,
       commute_time: 6,
       council_tax: 0,
@@ -295,6 +327,8 @@ export const PRESETS: Preset[] = [
       secondary_school: 0,
       gp_walk_time: 9,
       green_space: 7,
+      gym_access: 5,
+      median_salary: 0,
       median_price: 5,
       commute_time: 1,
       council_tax: 6,
@@ -318,6 +352,8 @@ export const PRESETS: Preset[] = [
       secondary_school: 2,
       gp_walk_time: 4,
       green_space: 8,
+      gym_access: 6,
+      median_salary: 5,
       median_price: 6,
       commute_time: 2,
       council_tax: 3,
@@ -341,6 +377,8 @@ export const PRESETS: Preset[] = [
       secondary_school: 4,
       gp_walk_time: 4,
       green_space: 4,
+      gym_access: 3,
+      median_salary: 6,
       median_price: 10,
       commute_time: 8,
       council_tax: 7,
@@ -364,6 +402,8 @@ export const PRESETS: Preset[] = [
       secondary_school: 6,
       gp_walk_time: 3,
       green_space: 4,
+      gym_access: 3,
+      median_salary: 7,
       median_price: 7,
       commute_time: 2,
       council_tax: 4,
