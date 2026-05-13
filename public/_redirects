@@ -1,0 +1,5 @@
+# SPA fallback for static hosts (Cloudflare Pages, Netlify).
+# Any path that doesn't match a static asset falls back to index.html so the
+# BrowserRouter can handle /methodology and /methodology/:id deep links.
+/data/regions/*  /data/regions/:splat  200
+/*               /index.html           200
