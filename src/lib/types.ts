@@ -163,6 +163,35 @@ export interface RegionAnchor {
   lng: number
 }
 
+export interface BBox {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
+/**
+ * Per-criterion data provenance for a SeedFile.
+ *
+ * `kind: 'synthetic'` is the Phase 1 default (deterministic generators);
+ * `kind: 'real'` indicates a criterion was sourced from a real upstream.
+ * The UI methodology page reads this to surface a "REAL" / "SYNTHETIC"
+ * badge alongside the source URL and fetch timestamp.
+ */
+export type CriterionProvenance =
+  | {
+      kind: 'synthetic'
+      generator: string
+      seedVersion: number
+    }
+  | {
+      kind: 'real'
+      sourceName: string
+      sourceUrl: string
+      fetchedAt: string
+      version?: string
+    }
+
 export interface SeedFile {
   version: number
   generatedAt: string
@@ -170,8 +199,10 @@ export interface SeedFile {
   regionDisplayName: string
   country: string
   h3Resolution: number
-  bbox: { west: number; south: number; east: number; north: number }
+  bbox: BBox
   anchor: RegionAnchor
   cellCount: number
   cells: CellScores[]
+  /** Optional per-criterion provenance map. Absent in legacy seed files. */
+  provenance?: Record<CriterionId, CriterionProvenance>
 }

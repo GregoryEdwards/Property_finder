@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Ingestion working dirs (raw downloads + per-criterion processed outputs).
+# Cached upstream data; reproducible from sources, not committed.
+scripts/data/raw/
+scripts/data/processed/
+!scripts/data/raw/.gitkeep
+!scripts/data/processed/.gitkeep
+
+# Local environment
+.env
+.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
