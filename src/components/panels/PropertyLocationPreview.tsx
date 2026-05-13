@@ -1,45 +1,51 @@
-import { useState } from 'react'
-import { ExternalLink, Eye, Map as MapIcon, MapPin } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ExternalLink, Eye, Map as MapIcon, MapPin, Navigation } from 'lucide-react'
+import { Map, Marker } from 'react-map-gl/maplibre'
 import type { Listing } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { basemapStyle } from '@/components/map/basemaps'
+import { useUIStore } from '@/state/useUIStore'
 
 interface Props {
   listing: Listing
 }
 
-type Provider = 'google' | 'osm'
-
 /**
- * Embedded location preview for a property listing.
+ * Inline location preview for a listing.
  *
- * Why an iframe embed at all:
- * - The user's pain point was "the inspect tab makes it hard to source the
- *   listing." Inline real-imagery is the most direct answer — they can see
- *   the actual neighbourhood without leaving the panel.
+ * Phase 1.5 originally shipped this as a tabbed Google Maps / OpenStreetMap
+ * iframe embed, but the Google `output=embed` legacy pattern is increasingly
+ * blocked by `X-Frame-Options: SAMEORIGIN`, producing a blank iframe. When
+ * both providers fail (some networks block them entirely) the user sees an
+ * empty card and reports a "blank screen."
  *
- * Why two providers (Google + OSM) rather than one:
- * - Google Maps embed is more familiar to UK users and routes/POI labels
- *   match what they'd see if they opened Google in a new tab.
- * - OpenStreetMap embed has zero third-party tracking and is a sensible
- *   default for privacy-conscious users.
- * - Both work *without an API key* — Google via its long-standing
- *   `output=embed` legacy pattern; OSM via its officially-supported
- *   `export/embed.html` endpoint.
+ * Phase 1.5.1 replaces the iframes with a small MapLibre map driven by the
+ * same basemap style the user has selected globally (dark / light /
+ * satellite). It uses the same WebGL stack as the main map, so:
+ *   - no iframe → no X-Frame-Options concerns
+ *   - no third-party loading → reliable in restricted networks
+ *   - visual continuity with the main map (same tiles, same look)
+ *   - the user can pan + zoom freely without leaving the panel
  *
- * Why no embedded Street View:
- * - Google Maps Embed API for Street View requires an API key (which we
- *   can't ship in a static frontend without leaking it). The deep-link
- *   below the preview opens the real Street View in a new tab — that's
- *   the closest the user gets to "a photo of this place" without a
- *   portal partnership.
- *
- * Lazy-load: iframe `src` is only set once the component mounts (the
- * component is itself only rendered when PropertyDetail is on screen),
- * but we also pass `loading="lazy"` so the browser can defer if the
- * iframe is offscreen at first.
+ * The footer keeps the prominent Street View deep-link (real imagery of the
+ * actual street at the listing's coordinates) plus deep-links to Google
+ * Maps and OpenStreetMap for full external views.
  */
 export function PropertyLocationPreview({ listing }: Props) {
-  const [provider, setProvider] = useState<Provider>('google')
+  // Read the user's current basemap so the mini-map matches the main map.
+  const basemap = useUIStore((s) => s.basemap)
+  const [mapError, setMapError] = useState<string | null>(null)
+
+  // Defensive: lat/lng must be finite numbers. If a malformed listing ever
+  // slipped through we want to render a graceful placeholder rather than
+  // crash MapLibre.
+  const validCoord =
+    Number.isFinite(listing.lat) && Number.isFinite(listing.lng)
+
+  // Reset the error state when the listing changes — the parent already
+  // keys PropertyDetail on listing.id, but this hook is defensive.
+  useEffect(() => {
+    setMapError(null)
+  }, [listing.id])
 
   return (
     <section
@@ -51,54 +57,74 @@ export function PropertyLocationPreview({ listing }: Props) {
           <MapPin className="h-3 w-3" />
           Location preview
         </div>
-        <div role="tablist" className="flex overflow-hidden rounded border border-border bg-bg-subtle">
-          <TabBtn
-            label="Google"
-            active={provider === 'google'}
-            onClick={() => setProvider('google')}
-          />
-          <TabBtn
-            label="OpenStreetMap"
-            active={provider === 'osm'}
-            onClick={() => setProvider('osm')}
-          />
+        <div className="font-mono text-[10px] text-ink-muted">
+          {listing.lat.toFixed(4)}, {listing.lng.toFixed(4)}
         </div>
       </header>
 
       <div className="relative aspect-[16/10] w-full bg-bg-subtle">
-        {provider === 'google' ? (
-          <iframe
-            key={`g-${listing.id}`}
-            title={`Google Map of ${listing.addressLine}`}
-            src={googleMapsEmbedSrc(listing.lat, listing.lng)}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full border-0"
-          />
+        {validCoord && !mapError ? (
+          <Map
+            initialViewState={{
+              longitude: listing.lng,
+              latitude: listing.lat,
+              zoom: 15.5,
+              pitch: 0,
+              bearing: 0,
+            }}
+            mapStyle={basemapStyle(basemap)}
+            // Keep the attribution control on; the basemap providers
+            // (CartoDB / Esri / OSM) require visible credit. MapLibre's
+            // attribution is compact by default at this size.
+            attributionControl={true}
+            onError={(e) => {
+              setMapError(e?.error?.message ?? 'Map failed to load')
+            }}
+            reuseMaps
+            style={{ position: 'absolute', inset: 0 }}
+          >
+            <Marker
+              longitude={listing.lng}
+              latitude={listing.lat}
+              anchor="bottom"
+            >
+              {/* Hand-styled pin — matches the accent colour. The
+                  drop-shadow lifts it off the basemap. */}
+              <div
+                className="relative -mb-1 drop-shadow-lg"
+                aria-hidden
+                title={`${listing.addressLine}, ${listing.postcode}`}
+              >
+                <MapPin
+                  className="h-6 w-6 text-accent"
+                  fill="currentColor"
+                  strokeWidth={1.5}
+                />
+              </div>
+            </Marker>
+          </Map>
         ) : (
-          <iframe
-            key={`o-${listing.id}`}
-            title={`OpenStreetMap of ${listing.addressLine}`}
-            src={osmEmbedSrc(listing.lat, listing.lng)}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            className="absolute inset-0 h-full w-full border-0"
-          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center text-xs text-ink-muted">
+            <MapIcon className="h-5 w-5" />
+            <span>
+              {mapError ?? 'Location coordinates unavailable for this listing'}
+            </span>
+          </div>
         )}
       </div>
 
-      {/* Footer: prominent Street View link (real imagery) + open-in-tab
-          links. We surface the Street View call-to-action here, *next to
-          the map preview*, because that's where users instinctively look
-          for "show me what this street actually looks like." */}
+      {/* Footer.
+          The Street View CTA is the visual cornerstone of the "real-imagery"
+          story — it sits next to the inline map so the user's eye groups
+          them. The two open-in-tab links below give a Google or OSM full
+          view in a new tab. */}
       <div className="flex flex-col gap-1.5 border-t border-border bg-bg-panel px-3 py-2">
         <a
           href={listing.portals.googleStreetView}
           target="_blank"
           rel="noopener noreferrer"
           className="group inline-flex items-center justify-between gap-2 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-bg-base hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-panel"
-          title="Real Street View imagery at this property's coordinates"
+          title="Real Google Street View imagery at this property's coordinates"
         >
           <span className="inline-flex items-center gap-1.5">
             <Eye className="h-4 w-4" />
@@ -106,91 +132,46 @@ export function PropertyLocationPreview({ listing }: Props) {
           </span>
           <ExternalLink className="h-3.5 w-3.5 opacity-75 group-hover:opacity-100" />
         </a>
-        <div className="flex items-center justify-between gap-2 text-[11px] text-ink-muted">
-          <span className="truncate">
-            <MapIcon className="-mt-0.5 mr-1 inline h-3 w-3" />
-            {listing.lat.toFixed(4)}, {listing.lng.toFixed(4)}
-          </span>
-          <a
-            href={
-              provider === 'google'
-                ? listing.portals.googleMaps
-                : openStreetMapUrl(listing.lat, listing.lng)
-            }
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-ink-secondary hover:text-ink-primary"
-            title="Open the map preview in a new tab for full controls"
-          >
-            Open in new tab
-            <ExternalLink className="h-3 w-3" />
-          </a>
+        <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+          <FooterLink
+            href={listing.portals.googleMaps}
+            label="Open in Google Maps"
+            icon={<Navigation className="h-3 w-3" />}
+          />
+          <FooterLink
+            href={openStreetMapUrl(listing.lat, listing.lng)}
+            label="Open in OpenStreetMap"
+            icon={<MapIcon className="h-3 w-3" />}
+          />
         </div>
       </div>
     </section>
   )
 }
 
-function TabBtn({
+function FooterLink({
+  href,
   label,
-  active,
-  onClick,
+  icon,
 }: {
+  href: string
   label: string
-  active: boolean
-  onClick: () => void
+  icon: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={cn(
-        'px-2 py-0.5 text-[10px] uppercase tracking-wider transition-colors',
-        active
-          ? 'bg-accent text-bg-base'
-          : 'text-ink-secondary hover:text-ink-primary',
-      )}
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center justify-center gap-1 rounded-md border border-border bg-bg-subtle px-2 py-1.5 text-ink-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
-      {label}
-    </button>
+      {icon}
+      <span className="truncate">{label}</span>
+      <ExternalLink className="h-3 w-3 shrink-0 text-ink-muted" />
+    </a>
   )
 }
 
-/**
- * Google Maps "legacy" embed URL — `output=embed` works without an API key.
- * It's the pattern Google has supported since the original Maps API and
- * is still the standard "free iframe embed" used across the web.
- */
-function googleMapsEmbedSrc(lat: number, lng: number): string {
-  const params = new URLSearchParams({
-    q: `${lat},${lng}`,
-    hl: 'en',
-    z: '17',
-    output: 'embed',
-  })
-  return `https://maps.google.com/maps?${params.toString()}`
-}
-
-/**
- * OpenStreetMap official embed endpoint. The marker pin uses the
- * documented `marker` query parameter; `bbox` controls the visible area.
- */
-function osmEmbedSrc(lat: number, lng: number): string {
-  // ±0.0035° gives roughly a 600 m × 400 m frame at UK latitudes.
-  const dx = 0.0035
-  const dy = 0.0025
-  const bbox = `${lng - dx},${lat - dy},${lng + dx},${lat + dy}`
-  const params = new URLSearchParams({
-    bbox,
-    layer: 'mapnik',
-    marker: `${lat},${lng}`,
-  })
-  return `https://www.openstreetmap.org/export/embed.html?${params.toString()}`
-}
-
-/** Standalone OSM link (the embed iframe doesn't surface "Open in a tab"). */
 function openStreetMapUrl(lat: number, lng: number): string {
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`
 }

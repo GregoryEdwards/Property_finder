@@ -242,6 +242,13 @@ the PR description.
   add a synthetic-listing disclosure banner; rewrite CTA copy as
   searches ("Find real listings on Rightmove") rather than portal names
   to fix the "I can't source the actual listing" UX confusion.
+- **Phase 1.5.1** (`fix/listings-preview-reliability`): the iframe
+  approach was unreliable — Google's `output=embed` started returning
+  `X-Frame-Options: SAMEORIGIN` and restricted networks blocked both
+  providers, producing a blank panel. Replaced with an inline MapLibre
+  mini-map driven by the user's global basemap selection; added a
+  generic `ErrorBoundary` (class component) so future render-time
+  failures show a recoverable error UI instead of blanking the panel.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.

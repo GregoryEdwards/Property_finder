@@ -34,7 +34,8 @@ src/
     map/                   MapView, basemaps, Legend, ListingsToggle, MapLoadingOverlay
     panels/                LayerPanel (left), ResultsPanel (right) + children
                            ListingsFilterBar (sort/price/beds/EPC/type/tenure/viewport)
-                           PropertyLocationPreview (Google/OSM iframe embed)
+                           PropertyLocationPreview (inline MapLibre mini-map)
+    util/                  ErrorBoundary (class-based subtree guard)
     methodology/           MethodologyIndex, CriterionDetailPage, MethodologyLayout
     ui/                    Slider, Checkbox, IconButton  ← reuse before adding
   data/                    loader.ts (TanStack Query hooks), useActiveRegionData
@@ -110,10 +111,15 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
   prices + Zoopla + OnTheMarket + Google Maps + Google Street View at the
   actual coordinates. Photos are *example* picks from a curated Unsplash CC0
   catalog and labelled as such.
-- **Inline location preview**: PropertyDetail embeds a tabbed Google Maps
-  / OpenStreetMap iframe (no API key, both providers support unauthenticated
-  embeds) at the listing's coordinates, with a prominent Street View
-  deep-link beneath. See `docs/LISTINGS.md` §6.
+- **Inline location preview**: PropertyDetail embeds a small MapLibre map
+  driven by the user's globally-selected basemap style, with a pin at the
+  listing's coordinates and a prominent Street View deep-link beneath.
+  Originally shipped (Phase 1.5) as a Google/OSM iframe embed but Google's
+  `output=embed` was unreliable and corporate networks blocked OSM too —
+  Phase 1.5.1 pivoted to MapLibre for reliability. See `docs/LISTINGS.md` §6.
+- **ErrorBoundary**: any third-party-prone subtree (PropertyDetail in
+  particular) should be wrapped in `@/components/util/ErrorBoundary` so a
+  failure becomes a recoverable error UI rather than a blank panel.
 - **Synthetic-listing disclosure**: PropertyDetail's banner makes the
   "demo listing" framing explicit, and the CTA labels read as searches
   ("Find real listings on Rightmove") rather than portal names. See

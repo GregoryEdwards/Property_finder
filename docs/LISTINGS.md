@@ -173,45 +173,50 @@ viewport intersection.
 
 ---
 
-## 6. Embedded location preview (Phase 1.5)
+## 6. Inline location preview (Phase 1.5.1)
 
 `PropertyDetail.tsx` renders a `<PropertyLocationPreview>` card showing the
-listing's actual coordinates on an embedded map, tabbed between two
-providers:
+listing's actual coordinates on a **small MapLibre map driven by the same
+basemap style the user has selected globally** (dark / light / satellite).
 
-- **Google Maps** — uses Google's legacy `output=embed` pattern at
-  `https://maps.google.com/maps?q=lat,lng&output=embed`. Works without an
-  API key; familiar to UK users; routes/POI labels match what they'd see
-  if they opened Google in a new tab.
-- **OpenStreetMap** — uses OSM's officially-supported embed endpoint at
-  `https://www.openstreetmap.org/export/embed.html?bbox=...&marker=lat,lng`.
-  Zero third-party tracking; sensible default for privacy-conscious users.
+### Why not iframes any more
 
-The card's footer carries a **prominent Street View deep-link** — the
-visual companion to the embedded map. Clicking it opens real street
-imagery at the listing's coordinates in a new tab.
+Phase 1.5 originally shipped this as tabbed Google Maps / OpenStreetMap
+iframe embeds. Two problems:
 
-### Why no embedded Street View
+1. **Google blocks the embed.** Google's `maps.google.com?output=embed`
+   legacy pattern is increasingly returning `X-Frame-Options: SAMEORIGIN`,
+   producing a silent blank iframe. The official Embed API requires an
+   API key, which we can't ship in a static frontend without leaking it.
+2. **Some networks block both.** Corporate firewalls, ad blockers, and
+   restrictive privacy extensions block `maps.google.com` and
+   `openstreetmap.org` iframes. The user sees a blank card and reports
+   a "blank screen".
 
-Google Maps Embed API for Street View *requires* an API key, which we
-cannot ship in a static frontend without leaking it. The deep-link
-delivers the same content (real Street View imagery at the listing's
-coordinates) without the security or quota concerns.
+Phase 1.5.1 switched to an inline MapLibre map for the preview:
 
-### iframe / security
+- No iframe → no `X-Frame-Options` concerns
+- No third-party loading → reliable in restricted networks
+- Same WebGL stack (MapLibre + CartoDB / Esri tiles) as the main map →
+  visual continuity, shared tile cache
+- The user can pan + zoom freely inside the card without leaving the
+  panel
 
-Both iframes use:
-- `loading="lazy"` so the browser can defer load when offscreen
-- `referrerPolicy="no-referrer-when-downgrade"` (don't leak referrer to
-  HTTP-downgraded targets)
-- A descriptive `title` attribute for accessibility
+### What renders
 
-No `sandbox` attribute today — both providers need scripts and same-origin
-content to render the map controls. If we tighten this later, the
-minimum needed is `sandbox="allow-scripts allow-same-origin allow-popups"`.
+- Map at zoom 15.5 centred on `listing.lng / listing.lat`
+- A `<Marker>` with a styled `MapPin` at the property coordinates
+- Standard MapLibre attribution control (compact)
+- An `onError` handler captures any MapLibre init failure and shows a
+  graceful placeholder instead of blanking the card
 
-When we add a Content Security Policy in Phase 2 hosting, `frame-src` will
-need to include `maps.google.com`, `www.google.com`, `www.openstreetmap.org`.
+### Deep-link footer (unchanged from Phase 1.5)
+
+Below the map: the prominent **"View Street View imagery here"** CTA
+opening Google Street View at the actual coordinates (real imagery,
+new tab), plus two smaller chips for **Open in Google Maps** and
+**Open in OpenStreetMap**. These deep-links are not iframes, so they're
+unaffected by the blocking that prompted the pivot.
 
 ## 7. Fly-to on listing select
 

@@ -74,19 +74,32 @@ and the per-field contract.
 3. If you change `photosForSeed`'s signature, update the call site in
    `scripts/lib/listings-generator.ts`.
 
-### Adding or swapping an embedded preview provider
+### Changing the inline location preview
 
-1. Edit `src/components/panels/PropertyLocationPreview.tsx` — both the
-   tab list and the iframe branch render against the `provider` state.
-2. Pick the simplest possible embed URL that **works without an API key**.
-   The two existing providers are precedents: Google's `output=embed`
-   legacy pattern and OSM's `export/embed.html` endpoint.
-3. If the provider needs scripts/cookies to function, leave the iframe
-   `sandbox` attribute *unset* (the default is most permissive). Don't
-   tighten security on third-party embeds — they often need cookies/local
-   storage that a sandbox blocks.
-4. Update `docs/LISTINGS.md` §6 with the provider notes and any CSP
-   `frame-src` change needed for Phase 2 hosting.
+`PropertyLocationPreview` uses an inline MapLibre map (not an iframe).
+Phase 1.5 originally shipped iframes; that was reverted in 1.5.1 because
+Google's `output=embed` pattern returns `X-Frame-Options: SAMEORIGIN`
+inconsistently and corporate networks block both providers. **Do not
+re-introduce iframes here** without re-reading `docs/LISTINGS.md` §6.
+
+To customise the preview:
+
+1. Edit `src/components/panels/PropertyLocationPreview.tsx`.
+2. The map uses `react-map-gl/maplibre`'s `<Map>` with the global basemap
+   style from `useUIStore`. To change the pin, edit the `<Marker>` content.
+3. The `onError` handler captures MapLibre init failures and renders a
+   graceful placeholder. Don't remove it without an equivalent fallback.
+4. The footer deep-links (Street View, Google Maps, OpenStreetMap) come
+   from `listing.portals.*` — those URLs are built at seed time by
+   `src/lib/propertyUrl.ts`. See the "Adding an outbound portal URL" recipe.
+
+### Wrapping new widgets in ErrorBoundary
+
+Any sub-tree that loads third-party content (maps, photos, embeds) or
+calls into untrusted data should be wrapped in
+`@/components/util/ErrorBoundary` so a single widget failure doesn't
+blank the panel. The boundary auto-resets when its `key` prop changes —
+pass the selected entity id so a new selection starts fresh.
 
 ### Changing or adding an outbound portal URL
 

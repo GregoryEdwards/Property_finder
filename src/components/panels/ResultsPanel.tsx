@@ -11,6 +11,7 @@ import { ExplanationCard } from './ExplanationCard'
 import { PropertyDetail } from './PropertyDetail'
 import { ListingsList } from './ListingsList'
 import { RankedList } from './RankedList'
+import { ErrorBoundary } from '@/components/util/ErrorBoundary'
 import { cn } from '@/lib/utils'
 
 /**
@@ -100,12 +101,20 @@ export function ResultsPanel() {
         {rightTab === 'inspect' && cells.length > 0 && (
           <>
             {selectedListing && selectedListingCell && selectedListingResult ? (
-              <PropertyDetail
+              // Isolate render-time failures so a broken widget inside
+              // PropertyDetail (e.g. a third-party iframe blowing up) can
+              // never blank the whole right panel. The key resets the
+              // boundary on listing switch.
+              <ErrorBoundary
                 key={selectedListing.id}
-                listing={selectedListing}
-                result={listingSuitability(selectedListing, selectedListingResult)}
-                cellRaw={selectedListingCell.raw}
-              />
+                label="property detail"
+              >
+                <PropertyDetail
+                  listing={selectedListing}
+                  result={listingSuitability(selectedListing, selectedListingResult)}
+                  cellRaw={selectedListingCell.raw}
+                />
+              </ErrorBoundary>
             ) : selectedCell && selectedCellResult ? (
               <ExplanationCard cell={selectedCell} result={selectedCellResult} />
             ) : (
