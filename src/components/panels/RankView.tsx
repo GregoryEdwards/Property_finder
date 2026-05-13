@@ -31,9 +31,20 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { CRITERIA, CRITERIA_BY_ID } from '@/lib/catalog'
 import { useProfileStore } from '@/state/useProfileStore'
+import { useNormalizedWeights } from '@/state/useNormalizedWeights'
 import { cn } from '@/lib/utils'
 
-function SortableRow({ id, label, rank }: { id: string; label: string; rank: number }) {
+function SortableRow({
+  id,
+  label,
+  rank,
+  sharePct,
+}: {
+  id: string
+  label: string
+  rank: number
+  sharePct: number
+}) {
   const {
     attributes,
     listeners,
@@ -70,6 +81,19 @@ function SortableRow({ id, label, rank }: { id: string; label: string; rank: num
         {rank}
       </span>
       <span className="flex-1 truncate text-ink-primary">{label}</span>
+      <span
+        className={cn(
+          'inline-flex h-5 min-w-[2.4rem] items-center justify-center rounded font-mono text-[10px] tabular-nums',
+          sharePct >= 40
+            ? 'bg-accent text-bg-base'
+            : sharePct > 0
+              ? 'bg-bg-base text-ink-secondary'
+              : 'bg-bg-base text-ink-muted',
+        )}
+        title="Resulting share of composite score from rank-reciprocal weighting"
+      >
+        {sharePct}%
+      </span>
     </li>
   )
 }
@@ -78,6 +102,7 @@ export function RankView() {
   const enabled = useProfileStore((s) => s.enabled)
   const weights = useProfileStore((s) => s.weights)
   const setOrderedRank = useProfileStore((s) => s.setOrderedRank)
+  const { weights: normalised } = useNormalizedWeights()
 
   // Current ordering: sort enabled criteria by current weight desc.
   const orderedIds = useMemo(() => {
@@ -128,6 +153,7 @@ export function RankView() {
                 id={id}
                 label={CRITERIA_BY_ID[id]?.displayName ?? id}
                 rank={i + 1}
+                sharePct={Math.round((normalised[id] ?? 0) * 100)}
               />
             ))}
           </ul>

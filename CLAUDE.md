@@ -38,9 +38,10 @@ src/
                            View card + Rightmove/Zoopla/OTM links
                            Pinned tab: PinnedList / PinnedDetail / AddPinnedForm
     util/                  ErrorBoundary (class-based subtree guard)
-    map/                   MapView, basemaps, PinDropToggle, ListingsToggle, …
+    map/                   MapView, basemaps, PinDropToggle, ListingsToggle,
+                           MapHoverTip (hex hover score preview), Legend, …
     methodology/           MethodologyIndex, CriterionDetailPage, MethodologyLayout
-    ui/                    Slider, Checkbox, IconButton  ← reuse before adding
+    ui/                    Slider, Switch, Checkbox, IconButton  ← reuse before adding
   data/                    loader.ts (TanStack Query hooks), useActiveRegionData
                            useFilteredListings (filter+sort+viewport pass)
   lib/
@@ -59,6 +60,7 @@ src/
     utils.ts               cn(), formatGBP(), epcColor(), formatRaw()
   state/                   Zustand stores (Profile + UI + Region +
                            Favourites + ListingsFilter + Pinned)
+                           + useNormalizedWeights() hook
 public/data/regions/       region seed JSON (lazy fetched at runtime)
 scripts/                   per-region seed generators + shared listings factory
 docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
@@ -135,6 +137,18 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
   H3-indexed at save time so scoring is `resultsByH3.get(pin.h3)`. Two
   entry paths: postcode lookup (postcodes.io) or click-to-pin on the
   map. See `docs/PINNED.md` for the full subsystem.
+- **Scoring transparency** (Phase 1.7): every CriterionRow has a clear
+  Switch (include / exclude from the score), a live "X%" chip showing
+  its normalised share, and a Solo button that zeros every other
+  weight. ExplanationCard spells out the formula
+  `weight % × cell score = contribution` per row plus an expandable
+  "How this is calculated" explainer. MapView shows a hover tooltip
+  over hex cells. LayerPanel exposes a "Highlight top zones above N"
+  threshold slider that dims cells below the threshold.
+- **`useNormalizedWeights()`**: hook in `src/state/` that returns the
+  live normalised weight vector — use it anywhere you need to display
+  "this criterion is contributing X% to the composite". Single source
+  of truth; thin wrapper over `normalizeWeights` from suitability.ts.
 - **Synthetic-listing disclosure**: PropertyDetail's banner makes the
   "demo listing" framing explicit, and the CTA labels read as searches
   ("Find real listings on Rightmove") rather than portal names. See

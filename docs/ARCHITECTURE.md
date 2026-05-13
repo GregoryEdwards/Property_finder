@@ -65,6 +65,30 @@ own visual treatment). Don't merge them. If a user wants to "down-weight
 strongly" they can set weight 0; if they want to *exclude* they use a
 constraint.
 
+### 2.5 Surfacing the WLC in the UI
+
+The maths from §2.3 is small. The user-facing UI has to make it
+*legible*, which is more work. Patterns:
+
+- **Switch per CriterionRow** — clear ON/OFF affordance to fully
+  remove a criterion from the normalised weight vector. Different
+  surface from the slider (which only varies the *share*).
+- **Live "X%" chip** — every CriterionRow shows its normalised share
+  alongside the raw 0–10 slider value. The chip is the meaningful
+  number; the slider value is the input.
+- **Solo button per row** — zeros every other weight, leaving the
+  current criterion alone. Quick "what if only this mattered?" probe.
+- **`useNormalizedWeights()` hook** — single source of truth for the
+  live share vector. Components subscribe to it directly rather than
+  recomputing.
+- **Hex hover tooltip** — score + top two contributors visible on
+  hover, no click required.
+- **Formula in ExplanationCard** — every row spells out
+  `W% × S = contribution` so users see *which* lever (weight or cell
+  score) is driving the composite.
+- **`topZonesThreshold`** — a slider that dims cells below a score
+  floor so the high-scoring areas pop visually.
+
 ---
 
 ## 3. Data architecture
@@ -268,6 +292,21 @@ the PR description.
   panel tab "Pinned" with list + detail + add-form views; new
   `PinDropToggle` floating button. Postcode geocoding via postcodes.io
   (free, no API key). See `docs/PINNED.md`.
+- **Phase 1.7** (`feat/scoring-transparency`): the WLC was already
+  correct; this phase makes it *legible*. Each CriterionRow now has a
+  visible Switch (include / exclude from score) replacing the old
+  Checkbox, plus a live "X%" chip showing its normalised share and a
+  Solo button that zeros every other weight for quick "what if only
+  this mattered?" exploration. ExplanationCard spells out the formula
+  per row (`weight % × cell score = contribution`) and carries an
+  expandable explainer of the WLC. New `MapHoverTip` shows a tiny
+  popover with the cell's score + top two contributors on hex hover.
+  LayerPanel header summarises "X / N active · top: <criterion> at
+  Y%" with Enable-all / Disable-all bulk actions, and the previously
+  unused `topZonesThreshold` UI state is surfaced as a slider that
+  dims cells scoring below it. New `useNormalizedWeights()` hook
+  (thin wrapper over `normalizeWeights`) is the single source of
+  truth for the live %.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.

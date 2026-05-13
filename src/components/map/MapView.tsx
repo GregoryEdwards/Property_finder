@@ -18,6 +18,7 @@ import { basemapStyle } from './basemaps'
 import { Legend } from './Legend'
 import { ListingsToggle } from './ListingsToggle'
 import { PinDropToggle } from './PinDropToggle'
+import { MapHoverTip } from './MapHoverTip'
 import { MapLoadingOverlay } from './MapLoadingOverlay'
 import type { CellSuitability, Listing, PinnedProperty } from '@/lib/types'
 import type { PickingInfo } from '@deck.gl/core'
@@ -61,6 +62,15 @@ export function MapView() {
   const pinDropMode = useUIStore((s) => s.pinDropMode)
   const setPinDropMode = useUIStore((s) => s.setPinDropMode)
   const setPendingPinDrop = useUIStore((s) => s.setPendingPinDrop)
+  const topZonesThreshold = useUIStore((s) => s.topZonesThreshold)
+
+  // Hover state for the floating MapHoverTip. Set by the H3 layer's
+  // onHover; cleared on mouse-out / layer-leave.
+  const [hover, setHover] = useState<{
+    x: number
+    y: number
+    h3: string
+  } | null>(null)
 
   // Pinned properties read from the persisted store, filtered to the
   // active region so off-region pins don't litter the map.
@@ -268,12 +278,24 @@ export function MapView() {
   )
 
   const layers = useMemo(() => {
+    // Top-zones threshold: dim cells that score below the user's chosen
+    // floor so the high-scoring zones pop visually. Off when null.
+    const dimFactor = 0.18
     const hex = new H3HexagonLayer({
       id: 'suitability-hex',
       data: layerData,
       getHexagon: (d: { h3: string }) => d.h3,
-      getFillColor: (d: { score: number | null }) =>
-        suitabilityRGBA(d.score, opacityByte),
+      getFillColor: (d: { score: number | null }) => {
+        const rgba = suitabilityRGBA(d.score, opacityByte)
+        if (
+          topZonesThreshold !== null &&
+          d.score !== null &&
+          d.score < topZonesThreshold
+        ) {
+          return [rgba[0], rgba[1], rgba[2], Math.round(rgba[3] * dimFactor)]
+        }
+        return rgba
+      },
       getLineColor: (d: { h3: string }) =>
         d.h3 === selectedH3 ? [253, 231, 36, 255] : [0, 0, 0, 0],
       getLineWidth: (d: { h3: string }) => (d.h3 === selectedH3 ? 3 : 0),
@@ -283,8 +305,16 @@ export function MapView() {
       extruded: false,
       pickable: true,
       coverage: 1,
+      onHover: (info) => {
+        const o = info.object as { h3: string } | undefined
+        if (o && info.x !== undefined && info.y !== undefined) {
+          setHover({ x: info.x, y: info.y, h3: o.h3 })
+        } else {
+          setHover(null)
+        }
+      },
       updateTriggers: {
-        getFillColor: [layerData, opacityByte],
+        getFillColor: [layerData, opacityByte, topZonesThreshold],
         getLineColor: [selectedH3],
         getLineWidth: [selectedH3],
       },
@@ -352,7 +382,10 @@ export function MapView() {
     showListings,
     pinnedInRegion,
     selectedPinnedId,
+    topZonesThreshold,
   ])
+
+  const hoveredResult = hover ? resultsByH3.get(hover.h3) : null
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
@@ -381,6 +414,12 @@ export function MapView() {
         <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-md bg-accent/95 px-3 py-1.5 text-xs font-semibold text-bg-base shadow backdrop-blur">
           Click anywhere on the map to drop a pin
         </div>
+      )}
+      {/* Hex hover preview — score + top contributors. Cheap; only one
+          element on screen at a time. Skipped during pin-drop mode so it
+          doesn't fight with the crosshair affordance. */}
+      {hover && hoveredResult && !pinDropMode && (
+        <MapHoverTip x={hover.x} y={hover.y} result={hoveredResult} />
       )}
       {(isLoading || hasError) && (
         <MapLoadingOverlay
