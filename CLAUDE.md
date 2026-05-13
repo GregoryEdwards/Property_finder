@@ -5,6 +5,11 @@ house hunters. Two regions today (Greater London, West Midlands); 18 criteria.
 This file is the daily-driver brief. Detailed docs live in `docs/` and
 procedural recipes in `.claude/skills/`.
 
+**Before doing real work**, read `docs/HANDOVER.md` — meta-lessons from the
+previous sessions: traps that bit us and we shouldn't repeat, the user's
+working style, architectural calls that paid off, and what to read in
+what order on day one.
+
 ## Commands
 
 ```bash
