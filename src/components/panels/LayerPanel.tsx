@@ -109,9 +109,12 @@ export function LayerPanel() {
       </div>
 
       <div className="border-b border-border px-3 pb-2 pt-1">
+        <div className="mb-1 text-[10px] uppercase tracking-wider text-ink-muted">
+          Mode
+        </div>
         <div
           role="tablist"
-          aria-label="Priority view"
+          aria-label="Weighting mode"
           className="grid grid-cols-2 overflow-hidden rounded-md border border-border bg-bg-base"
         >
           <button
@@ -119,6 +122,7 @@ export function LayerPanel() {
             type="button"
             aria-selected={priorityView === 'slider'}
             onClick={() => setPriorityView('slider')}
+            title="Set each criterion's weight directly with the sliders"
             className={cn(
               'flex items-center justify-center gap-1.5 py-1.5 text-xs transition-colors',
               priorityView === 'slider'
@@ -126,13 +130,14 @@ export function LayerPanel() {
                 : 'text-ink-secondary hover:bg-bg-hover',
             )}
           >
-            <Sliders className="h-3.5 w-3.5" /> Slider
+            <Sliders className="h-3.5 w-3.5" /> Manual
           </button>
           <button
             role="tab"
             type="button"
             aria-selected={priorityView === 'rank'}
             onClick={() => setPriorityView('rank')}
+            title="Drag to reorder; weights derived by the chosen rank algorithm"
             className={cn(
               'flex items-center justify-center gap-1.5 py-1.5 text-xs transition-colors',
               priorityView === 'rank'
@@ -140,9 +145,14 @@ export function LayerPanel() {
                 : 'text-ink-secondary hover:bg-bg-hover',
             )}
           >
-            <ListOrdered className="h-3.5 w-3.5" /> Rank
+            <ListOrdered className="h-3.5 w-3.5" /> Ranked
           </button>
         </div>
+        <p className="mt-1.5 text-[10px] leading-snug text-ink-muted">
+          {priorityView === 'slider'
+            ? 'Set each criterion’s weight directly with the sliders below.'
+            : 'Drag to reorder; weights are auto-derived by your chosen rank algorithm.'}
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto">

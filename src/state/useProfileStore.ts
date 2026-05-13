@@ -5,18 +5,44 @@
  * so users don't lose their tuned profile on refresh.
  *
  * Persistence intentionally stores only the profile fields (weights / enabled
- * / constraints / id / name); store-action references are stripped via the
- * `partialize` config.
+ * / constraints / id / name / rankScheme); store-action references are
+ * stripped via the `partialize` config.
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CRITERIA, PRESETS_BY_ID } from '@/lib/catalog'
 import type { CriterionId, HardConstraint, WeightProfile } from '@/lib/types'
 
+/**
+ * Choice of rank-to-weights translation when the user reorders criteria in
+ * the Ranked mode. Two schemes:
+ *
+ *   - `reciprocal`  (default; the original algorithm)
+ *       w_i ∝ 1 / rank_i
+ *     Steep differential — top rank dominates. Rank 1 ≈ 10, rank 2 ≈ 5,
+ *     rank 3 ≈ 3, rank 4 ≈ 2, rank 5+ ≈ 1.
+ *
+ *   - `linear`  (rank-sum)
+ *       w_i ∝ (N - rank_i + 1)
+ *     Gentle differential — weights step down by one per rank. Useful
+ *     when the user wants ranking to influence but not dominate.
+ *
+ * Both are standard schemes from MCDA literature for converting an ordinal
+ * priority ranking into a cardinal weight vector. We expose both so the
+ * user can pick the differential that matches their intent.
+ */
+export type RankScheme = 'reciprocal' | 'linear'
+
 interface ProfileState extends WeightProfile {
+  /** Active rank-to-weights translation used by `setOrderedRank`. */
+  rankScheme: RankScheme
+
   setWeight: (criterionId: CriterionId, weight: number) => void
   setEnabled: (criterionId: CriterionId, enabled: boolean) => void
+  /** Reorder the enabled criteria from most → least important. Writes
+   *  weights via the currently-active `rankScheme`. */
   setOrderedRank: (orderedIds: CriterionId[]) => void
+  setRankScheme: (scheme: RankScheme) => void
   setConstraints: (constraints: HardConstraint[]) => void
   toggleConstraintCategory: (
     criterionId: CriterionId,
@@ -27,7 +53,7 @@ interface ProfileState extends WeightProfile {
   resetToDefaults: () => void
 }
 
-const defaultProfile = (): WeightProfile => {
+const defaultProfile = (): WeightProfile & { rankScheme: RankScheme } => {
   const weights: Record<string, number> = {}
   const enabled: Record<string, boolean> = {}
   for (const c of CRITERIA) {
@@ -40,33 +66,41 @@ const defaultProfile = (): WeightProfile => {
     weights,
     enabled,
     constraints: [],
+    rankScheme: 'reciprocal',
   }
 }
 
 /**
- * Translate a drag-to-rank ordering of currently-enabled criteria into
- * weights via the rank-reciprocal scheme:
- *
- *     w_i ∝ 1 / rank_i
- *
- * Scaled to the 0..10 UI range so the slider view shows comparable numbers
- * when the user switches back.
+ * Translate a drag-to-rank ordering into weights using the active scheme.
+ * Output is scaled to the 0..10 UI range so the slider view shows
+ * comparable numbers when the user switches back to Manual mode.
  */
 function weightsFromRank(
   orderedIds: CriterionId[],
+  scheme: RankScheme,
   prevWeights: Record<string, number>,
 ): Record<string, number> {
   const w: Record<string, number> = { ...prevWeights }
-  let maxNorm = 0
-  const norm: number[] = []
-  for (let i = 0; i < orderedIds.length; i++) {
-    norm.push(1 / (i + 1))
-    if (norm[i] > maxNorm) maxNorm = norm[i]
+  const n = orderedIds.length
+  if (n === 0) return w
+
+  // Compute the raw scheme value for each rank index (0..n-1).
+  const raw: number[] = []
+  for (let i = 0; i < n; i++) {
+    if (scheme === 'reciprocal') {
+      raw.push(1 / (i + 1))
+    } else {
+      // linear / rank-sum: top rank gets N, second N-1, …, last gets 1.
+      raw.push(n - i)
+    }
   }
-  // Scale top rank to ~10, floor to 1 for visibility.
-  for (let i = 0; i < orderedIds.length; i++) {
+  const maxRaw = raw.reduce((m, v) => (v > m ? v : m), 0)
+
+  // Scale top to ~10, floor to 1 so even bottom ranks remain visible
+  // on the slider.
+  for (let i = 0; i < n; i++) {
     const id = orderedIds[i]
-    const scaled = (norm[i] / maxNorm) * 10
+    const scaled = (raw[i] / maxRaw) * 10
     w[id] = Math.max(1, Math.round(scaled))
   }
   return w
@@ -81,7 +115,10 @@ export const useProfileStore = create<ProfileState>()(
       setEnabled: (criterionId, enabled) =>
         set((s) => ({ enabled: { ...s.enabled, [criterionId]: enabled } })),
       setOrderedRank: (orderedIds) =>
-        set((s) => ({ weights: weightsFromRank(orderedIds, s.weights) })),
+        set((s) => ({
+          weights: weightsFromRank(orderedIds, s.rankScheme, s.weights),
+        })),
+      setRankScheme: (scheme) => set({ rankScheme: scheme }),
       setConstraints: (constraints) => set({ constraints }),
       toggleConstraintCategory: (criterionId, category) => {
         const current = get().constraints
@@ -135,6 +172,7 @@ export const useProfileStore = create<ProfileState>()(
         weights: s.weights,
         enabled: s.enabled,
         constraints: s.constraints,
+        rankScheme: s.rankScheme,
       }),
     },
   ),

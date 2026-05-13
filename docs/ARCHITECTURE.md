@@ -65,6 +65,32 @@ own visual treatment). Don't merge them. If a user wants to "down-weight
 strongly" they can set weight 0; if they want to *exclude* they use a
 constraint.
 
+### 2.4.1 Rank-to-weights algorithms
+
+When the user picks the *Ranked* mode and reorders criteria, the
+runtime needs to translate the ordinal ranking into a cardinal weight
+vector. We ship two schemes (both standard in MCDA literature):
+
+| Scheme | Formula | Differential |
+|---|---|---|
+| `reciprocal` | `w_i ∝ 1 / rank_i` | Steep — top rank dominates |
+| `linear` | `w_i ∝ (N − rank_i + 1)` | Gentle — one-step drop per rank |
+
+Concrete N=5 examples (scaled to the 0..10 UI range):
+
+| Rank | reciprocal | linear |
+|---|---|---|
+| 1 | 10 | 10 |
+| 2 | 5 | 8 |
+| 3 | 3 | 6 |
+| 4 | 3 | 4 |
+| 5 | 2 | 2 |
+
+`rankScheme` is part of the persisted `WeightProfile` so a saved
+profile carries its preferred algorithm. Switching scheme
+immediately re-derives the current order's weights (the user sees the
+map redraw, rather than having to drag again).
+
 ### 2.5 Surfacing the WLC in the UI
 
 The maths from §2.3 is small. The user-facing UI has to make it
@@ -307,6 +333,17 @@ the PR description.
   dims cells scoring below it. New `useNormalizedWeights()` hook
   (thin wrapper over `normalizeWeights`) is the single source of
   truth for the live %.
+- **Phase 1.8** (`feat/rank-schemes`): two top-level modes for setting
+  priorities now read as **modes** rather than tabs — *Manual*
+  (sliders) and *Ranked* (drag order). Within Ranked, the user picks
+  one of two rank-to-weights algorithms:
+    * `reciprocal`  — `w_i ∝ 1/rank_i`. Steep differential; rank 1
+      dominates. The original algorithm.
+    * `linear` (rank-sum) — `w_i ∝ (N − rank_i + 1)`. Gentle, even
+      step-down. Useful when ranking should influence but not
+      overwhelm.
+  Both are standard MCDA schemes. `rankScheme` lives in the profile
+  store (persisted) so the choice travels with the profile.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.

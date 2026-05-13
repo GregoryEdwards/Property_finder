@@ -149,6 +149,12 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
   live normalised weight vector — use it anywhere you need to display
   "this criterion is contributing X% to the composite". Single source
   of truth; thin wrapper over `normalizeWeights` from suitability.ts.
+- **Two priority modes + two rank schemes**: priorities are set in
+  either *Manual* mode (sliders) or *Ranked* mode (drag-to-rank).
+  Within Ranked, `rankScheme` on the profile picks between
+  `reciprocal` (1/rank, steep — the original) and `linear`
+  (N − rank + 1, gentle). The scheme is persisted with the profile.
+  See `docs/ARCHITECTURE.md` §2.4.1.
 - **Synthetic-listing disclosure**: PropertyDetail's banner makes the
   "demo listing" framing explicit, and the CTA labels read as searches
   ("Find real listings on Rightmove") rather than portal names. See
