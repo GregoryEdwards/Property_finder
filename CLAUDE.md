@@ -8,7 +8,10 @@ procedural recipes in `.claude/skills/`.
 **Before doing real work**, read `docs/HANDOVER.md` — meta-lessons from the
 previous sessions: traps that bit us and we shouldn't repeat, the user's
 working style, architectural calls that paid off, and what to read in
-what order on day one.
+what order on day one. And `docs/DATA_TODO.md` — the per-criterion
+tracker showing which data is real vs synthetic (today all 18 criteria
+are 🟡 synthetic; cell values come from the seed scripts not the real
+publishers).
 
 ## Commands
 
