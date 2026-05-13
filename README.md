@@ -5,12 +5,13 @@
 > A&E access, price, crime, air quality), and the app continuously surfaces
 > the best zones on a map — alongside the live listings inside them.
 
-**Phase 1.1 · Greater London + West Midlands**.
-17 default criteria, persona presets, and Rightmove-style listings tuned
-for the UK property market. Two launch regions today (Greater London,
-West Midlands conurbation); adding more is a registry entry + a seed
-generator — the runtime fetches each region's data on demand from
-`/data/regions/*` rather than bundling it.
+**Phase 1.2 · Greater London + West Midlands · 18 criteria**.
+Persona presets and Rightmove-style listings tuned for the UK property
+market. Two launch regions today (Greater London, West Midlands
+conurbation); adding more is a registry entry + a seed generator — the
+runtime fetches each region's data on demand from `/data/regions/*`
+rather than bundling it. Every criterion has a documented methodology
+page citing real upstream sources, publication cadence, and dates.
 
 ---
 
@@ -27,6 +28,22 @@ redraw in real time, click a hex or a listing pin to inspect, save the
 ones you like.
 
 ## What's new
+
+### Phase 1.2
+- **Nature & countryside access** — a new criterion distinct from local
+  green space. Drive-time to substantial nature: woodland ≥ 50 ha, NNRs,
+  country parks, AONB / National Park. London draws on Epping Forest,
+  Hampstead Heath, Richmond Park, the Chilterns AONB, etc.; West Midlands
+  draws on Sutton Park, Cannock Chase AONB, Lickey Hills, Clent Hills,
+  Wyre Forest, and (further afield) the southern Peak District and
+  northern Cotswolds AONB.
+- **Methodology section** — full prose page per criterion at
+  `/methodology/<id>` with cited real sources (URL, publisher, licence,
+  cadence, latest known publication), the synthetic estimation method,
+  and any caveats. An ⓘ link on every priority row deep-links straight
+  in; a Methodology nav button lives in the top bar.
+- **Routing** introduced via react-router-dom v6. Static-host SPA
+  fallback configured in `public/_redirects`.
 
 ### Phase 1.1
 - **Multi-region architecture.** Seed JSON moved out of the JS bundle and

@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowUp, Tag } from 'lucide-react'
+import { ArrowDown, ArrowUp, Info, Tag } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import type { CriterionDefinition } from '@/lib/types'
 import { useProfileStore } from '@/state/useProfileStore'
 import { Checkbox } from '@/components/ui/Checkbox'
@@ -17,10 +18,8 @@ const DIRECTION_ICON = {
 
 /**
  * One row in the priorities panel: enable toggle, name, direction indicator,
- * weight slider, current numeric weight.
- *
- * Direct mutation of the profile store on every interaction; downstream
- * subscribers (the map layer) re-derive scores on each change.
+ * weight slider, current numeric weight, and an ⓘ info link into the
+ * methodology page for full sourcing detail.
  */
 export function CriterionRow({ criterion }: Props) {
   const enabled = useProfileStore((s) => s.enabled[criterion.id])
@@ -45,6 +44,14 @@ export function CriterionRow({ criterion }: Props) {
         <div className="flex-1 truncate text-sm text-ink-primary">
           {criterion.displayName}
         </div>
+        <Link
+          to={`/methodology/${criterion.id}`}
+          aria-label={`Methodology and sources for ${criterion.displayName}`}
+          title="Methodology & sources"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-bg-hover hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </Link>
         <div
           className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-ink-muted"
           title={

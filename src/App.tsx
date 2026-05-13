@@ -1,40 +1,26 @@
-import { useEffect } from 'react'
-import { TopBar } from '@/components/layout/TopBar'
-import { LayerPanel } from '@/components/panels/LayerPanel'
-import { ResultsPanel } from '@/components/panels/ResultsPanel'
-import { MapView } from '@/components/map/MapView'
-import { useUIStore } from '@/state/useUIStore'
-import { useRegionStore } from '@/state/useRegionStore'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import MapApp from './MapApp'
+import { MethodologyIndex } from '@/components/methodology/MethodologyIndex'
+import { CriterionDetailPage } from '@/components/methodology/CriterionDetailPage'
 
 /**
- * Top-level layout: three-column workspace.
+ * Application router.
  *
- * Region-change side-effect: clear the selected cell/listing when the user
- * switches metro so the right panel doesn't stay anchored on something from
- * the previous region.
+ *   /                       → live map (the bulk of the product)
+ *   /methodology            → index of all criteria, grouped by category
+ *   /methodology/:id        → per-criterion detail with sourcing + dates
+ *
+ * BrowserRouter is fine for static hosting (Cloudflare Pages, Vercel) once
+ * a SPA fallback is configured. In dev Vite handles the fallback itself.
  */
 export default function App() {
-  const leftOpen = useUIStore((s) => s.leftPanelOpen)
-  const rightOpen = useUIStore((s) => s.rightPanelOpen)
-  const setSelectedH3 = useUIStore((s) => s.setSelectedH3)
-  const setSelectedListingId = useUIStore((s) => s.setSelectedListingId)
-  const activeRegionId = useRegionStore((s) => s.activeRegionId)
-
-  useEffect(() => {
-    setSelectedH3(null)
-    setSelectedListingId(null)
-  }, [activeRegionId, setSelectedH3, setSelectedListingId])
-
   return (
-    <div className="flex h-screen w-screen flex-col bg-bg-base">
-      <TopBar />
-      <div className="flex flex-1 overflow-hidden">
-        {leftOpen && <LayerPanel />}
-        <main className="relative flex-1 overflow-hidden">
-          <MapView />
-        </main>
-        {rightOpen && <ResultsPanel />}
-      </div>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<MapApp />} />
+        <Route path="/methodology" element={<MethodologyIndex />} />
+        <Route path="/methodology/:id" element={<CriterionDetailPage />} />
+      </Routes>
+    </BrowserRouter>
   )
 }

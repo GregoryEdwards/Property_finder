@@ -29,7 +29,7 @@ import { CRITERIA } from '../src/lib/catalog'
 import { standardize } from '../src/lib/standardize'
 import type { CellScores, SeedFile } from '../src/lib/types'
 
-const SEED_VERSION = 1
+const SEED_VERSION = 2
 
 const WM_BBOX = {
   west: -2.30,
@@ -44,6 +44,26 @@ const SUTTON_COLDFIELD = { lat: 52.5708, lng: -1.8226 }
 const WOLVERHAMPTON = { lat: 52.587, lng: -2.128 }
 const COVENTRY = { lat: 52.4068, lng: -1.5197 }
 const BIRMINGHAM_AIRPORT = { lat: 52.4539, lng: -1.7480 }
+
+/**
+ * Substantial nature features near the West Midlands. Drive-time to the
+ * nearest drives the `nature_access` criterion (distinct from local
+ * `green_space` which is walk-time to nearest park ≥ 2 ha).
+ */
+const NATURE_FEATURES: Array<{ name: string; lat: number; lng: number }> = [
+  { name: 'Sutton Park (NNR)',          lat: 52.5660, lng: -1.8472 },
+  { name: 'Lickey Hills Country Park',  lat: 52.3722, lng: -2.0093 },
+  { name: 'Clent Hills (AONB-adj)',     lat: 52.4222, lng: -2.1057 },
+  { name: 'Cannock Chase (AONB)',       lat: 52.7544, lng: -2.0078 },
+  { name: 'Wyre Forest (NNR)',          lat: 52.3940, lng: -2.3540 },
+  { name: 'Kingsbury Water Park',       lat: 52.5715, lng: -1.6839 },
+  { name: 'Sandwell Valley Country Park', lat: 52.5253, lng: -1.9694 },
+  { name: 'Kinver Edge',                lat: 52.4475, lng: -2.2483 },
+  { name: 'Forest of Mercia (frag.)',   lat: 52.6920, lng: -1.9000 },
+  { name: 'Burton Dassett Hills',       lat: 52.1697, lng: -1.4444 },
+  { name: 'Cotswolds AONB (north)',     lat: 52.0500, lng: -1.7500 },
+  { name: 'Peak District NP (south)',   lat: 52.9700, lng: -1.7800 },
+]
 
 // Approximate River Tame + River Cole flow line (E of Birmingham).
 const RIVERS: Array<Array<[number, number]>> = [
@@ -348,6 +368,20 @@ function rawMedianSalary(lat: number, lng: number): number {
   return Math.max(22_000, 30_000 + aff + inner + field)
 }
 
+function rawNatureAccess(lat: number, lng: number): number {
+  // Drive time at average WM speeds (mix of urban 35 km/h + arterial
+  // 55 km/h). Picks up that even cells well inside the conurbation are
+  // usually within 30 min of Cannock Chase, Sutton Park, or the Lickey
+  // Hills.
+  let nearestKm = Infinity
+  for (const f of NATURE_FEATURES) {
+    const d = distKm(lat, lng, f.lat, f.lng)
+    if (d < nearestKm) nearestKm = d
+  }
+  const minPerKm = 1.3 + smoothField(lat, lng, 13.7) * 0.5
+  return 3 + nearestKm * minPerKm
+}
+
 function rawGymAccess(lat: number, lng: number): number {
   // Walking minutes to nearest gym/leisure centre. Bigger market towns are
   // well-served; rural fringes a bit further.
@@ -395,6 +429,7 @@ function main() {
       ptal: rawPTAL(lat, lng),
       median_salary: rawMedianSalary(lat, lng),
       gym_access: rawGymAccess(lat, lng),
+      nature_access: rawNatureAccess(lat, lng),
     }
     const scores: Record<string, number> = {}
     for (const c of CRITERIA) {

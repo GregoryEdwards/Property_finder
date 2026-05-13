@@ -30,7 +30,7 @@ import { CRITERIA } from '../src/lib/catalog'
 import { standardize } from '../src/lib/standardize'
 import type { CellScores, SeedFile } from '../src/lib/types'
 
-const SEED_VERSION = 3
+const SEED_VERSION = 4
 
 // Greater London bbox — slightly larger than the M25 for context.
 const LONDON_BBOX = {
@@ -42,6 +42,26 @@ const LONDON_BBOX = {
 
 const CHARING_CROSS = { name: 'Charing Cross', lat: 51.5074, lng: -0.1278 }
 const HEATHROW = { lat: 51.47, lng: -0.4543 }
+
+/**
+ * Substantial nature features near London. Drive-time to nearest of these
+ * drives the `nature_access` criterion (distinct from local `green_space`
+ * which is walk-time to nearest park ≥ 2 ha).
+ */
+const NATURE_FEATURES: Array<{ name: string; lat: number; lng: number }> = [
+  { name: 'Epping Forest',         lat: 51.6585, lng:  0.0339 },
+  { name: 'Hampstead Heath',       lat: 51.5594, lng: -0.1672 },
+  { name: 'Richmond Park',         lat: 51.4427, lng: -0.2737 },
+  { name: 'Wimbledon Common',      lat: 51.4382, lng: -0.2295 },
+  { name: 'Lee Valley Park',       lat: 51.6810, lng: -0.0102 },
+  { name: 'Wanstead Flats',        lat: 51.5605, lng:  0.0335 },
+  { name: 'Trent Park',            lat: 51.6520, lng: -0.1247 },
+  { name: 'Hainault Forest',       lat: 51.6262, lng:  0.1196 },
+  { name: 'Bushy Park',            lat: 51.4123, lng: -0.3441 },
+  { name: 'North Downs (Surrey)',  lat: 51.2735, lng: -0.1900 },
+  { name: 'Chiltern Hills (AONB)', lat: 51.7156, lng: -0.5621 },
+  { name: 'Lullingstone Country Park', lat: 51.3631, lng:  0.1873 },
+]
 
 // Approximate Thames polyline through London (E to W).
 const THAMES: Array<[number, number]> = [
@@ -326,6 +346,20 @@ function rawMedianSalary(lat: number, lng: number): number {
   return Math.max(23_000, 32_000 + centralBoost + westBoost * 0.5 + field)
 }
 
+function rawNatureAccess(lat: number, lng: number): number {
+  // Drive time at off-peak speeds (avg ~38 km/h within Greater London,
+  // ~55 km/h on M25 fringe). Distance to the nearest substantial nature
+  // feature, mapped to a minutes figure with a small jitter for traffic
+  // and a baseline 4-min "you can't avoid leaving the house" floor.
+  let nearestKm = Infinity
+  for (const f of NATURE_FEATURES) {
+    const d = distKm(lat, lng, f.lat, f.lng)
+    if (d < nearestKm) nearestKm = d
+  }
+  const minPerKm = 1.4 + smoothField(lat, lng, 13.7) * 0.5
+  return 4 + nearestKm * minPerKm
+}
+
 function rawGymAccess(lat: number, lng: number): number {
   // Walking minutes to nearest gym/leisure centre. Dense in inner London
   // (PureGym, Virgin Active, council leisure centres), thinner outer ring.
@@ -377,6 +411,7 @@ function main() {
       ptal: rawPTAL(lat, lng),
       median_salary: rawMedianSalary(lat, lng),
       gym_access: rawGymAccess(lat, lng),
+      nature_access: rawNatureAccess(lat, lng),
     }
     const scores: Record<string, number> = {}
     for (const c of CRITERIA) {

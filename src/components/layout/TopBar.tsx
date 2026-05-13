@@ -1,4 +1,5 @@
-import { Layers, BarChart3, MapPin, Sun, Moon, Satellite, Search } from 'lucide-react'
+import { BookOpen, Layers, BarChart3, MapPin, Sun, Moon, Satellite, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useUIStore } from '@/state/useUIStore'
 import { useRegionStore } from '@/state/useRegionStore'
 import { REGIONS_BY_ID } from '@/lib/regions'
@@ -78,6 +79,14 @@ export function TopBar() {
           <MapPin className="-mt-0.5 mr-1 inline h-3 w-3" />
           Anchor: {region?.anchor.name ?? '—'}
         </span>
+        <Link
+          to="/methodology"
+          title="Methodology & sources"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-ink-secondary hover:bg-bg-hover hover:text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <BookOpen className="h-4 w-4" />
+          <span className="hidden xl:inline">Methodology</span>
+        </Link>
         <IconButton
           ariaLabel={rightPanelOpen ? 'Collapse results panel' : 'Expand results panel'}
           active={rightPanelOpen}

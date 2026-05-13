@@ -235,6 +235,21 @@ export const CRITERIA: CriterionDefinition[] = [
     transform: { type: 'linear', min: 22_000, max: 75_000 },
   },
 
+  {
+    id: 'nature_access',
+    displayName: 'Nature & countryside',
+    category: 'facilities',
+    unit: 'minutes (drive)',
+    direction: 'less_is_better',
+    defaultWeight: 4,
+    defaultEnabled: true,
+    description:
+      'Drive time to substantial natural land — woodland (≥ 50 ha), nature reserves, country parks, AONB, National Park. Complements the more local "green space access" criterion.',
+    dataSource:
+      'OS Open Greenspace woodland + Natural England priority habitats + AONB / National Park boundaries (synthetic for Phase 1.1 demo)',
+    transform: { type: 'fuzzy_decay', idealMax: 10, acceptableMax: 45, curve: 'linear' },
+  },
+
   // ───── Facilities cont. — gym (kept near other facility criteria) ──────
   {
     id: 'gym_access',
@@ -301,6 +316,7 @@ export const PRESETS: Preset[] = [
       secondary_school: 9,
       gp_walk_time: 5,
       green_space: 7,
+      nature_access: 5,
       gym_access: 4,
       median_salary: 4,
       median_price: 5,
@@ -327,6 +343,7 @@ export const PRESETS: Preset[] = [
       secondary_school: 0,
       gp_walk_time: 9,
       green_space: 7,
+      nature_access: 6,
       gym_access: 5,
       median_salary: 0,
       median_price: 5,
@@ -352,6 +369,7 @@ export const PRESETS: Preset[] = [
       secondary_school: 2,
       gp_walk_time: 4,
       green_space: 8,
+      nature_access: 8,
       gym_access: 6,
       median_salary: 5,
       median_price: 6,
@@ -377,6 +395,7 @@ export const PRESETS: Preset[] = [
       secondary_school: 4,
       gp_walk_time: 4,
       green_space: 4,
+      nature_access: 3,
       gym_access: 3,
       median_salary: 6,
       median_price: 10,
@@ -402,6 +421,7 @@ export const PRESETS: Preset[] = [
       secondary_school: 6,
       gp_walk_time: 3,
       green_space: 4,
+      nature_access: 4,
       gym_access: 3,
       median_salary: 7,
       median_price: 7,
