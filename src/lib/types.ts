@@ -116,6 +116,15 @@ export type CouncilTaxBand = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H'
  * A UK property listing. Modelled to match the fields that surface on
  * Rightmove / Zoopla; we'll replace synthetic instances with real feeds
  * in Phase 2 once a licensing path is secured.
+ *
+ * Phase 1.3 additions:
+ *   - photos: an ordered set (hero + thumbnails) drawn from the curated
+ *     CC0 photo catalog in src/lib/listingPhotos.ts.
+ *   - propertyUrl: a *real* Rightmove search URL pre-filled with the
+ *     listing's postcode + price + bed range. Clicking it lands the user
+ *     on genuine comparable listings — Phase 1 doesn't ship fake listings
+ *     as if they were real, it surfaces real ones.
+ *   - agentName: synthetic but plausible UK agency name. Phase 2 replaces.
  */
 export interface Listing {
   id: string
@@ -143,8 +152,12 @@ export interface Listing {
   epc: EPCBand
   councilTaxBand: CouncilTaxBand
   daysOnMarket: number
-  /** Stable but synthetic photo placeholder — a Picsum seed id. */
-  photoSeed: number
+  /** Ordered photo URLs. photos[0] is the hero; the rest are gallery thumbs. */
+  photos: string[]
+  /** Outbound URL to a real Rightmove search page for comparable properties. */
+  propertyUrl: string
+  /** Synthetic agency name. */
+  agentName: string
 }
 
 /** Per-property suitability — composite + ranked contributions. */

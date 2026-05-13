@@ -101,7 +101,20 @@ suitability is inherited from the cell.
 The shared factory `scripts/lib/listings-generator.ts` takes the cell
 seed, a region-specific postcode-area table, a count, and a PRNG seed,
 and produces Rightmove-style records (price, beds/baths, sqft, tenure,
-EPC, council tax band, days-on-market).
+EPC, council tax band, days-on-market, **photos, propertyUrl, agentName**).
+
+Each synthetic listing carries:
+- a deterministic set of photos from a curated Unsplash CC0 catalog
+  (`src/lib/listingPhotos.ts`)
+- an outbound `propertyUrl` built by `src/lib/propertyUrl.ts` that lands
+  the user on a **real Rightmove search** for the postcode district + price
+  ±10% + bed count. This is genuinely useful: even though the listing is
+  synthetic, clicking through shows real comparable properties.
+
+Filter/sort/viewport discovery for listings is implemented in
+`src/data/useFilteredListings.ts` (a single hook the Listings and
+Favourites tabs share) backed by a persisted `useListingsFilterStore`.
+See `docs/LISTINGS.md` for the full subsystem reference.
 
 ### 3.4 Region registry pattern
 
@@ -209,6 +222,10 @@ the PR description.
   West Midlands, +median salary, +gym access.
 - **Phase 1.2** (`phase-1.2-methodology`): +nature access, full methodology
   pages with cited sources.
+- **Phase 1.3** (`feat/listings-discovery`): listings stack overhaul —
+  curated Unsplash photo catalog, Rightmove deep-link `propertyUrl`,
+  filter / sort / postcode search / viewport-only toggle, photo gallery
+  on PropertyDetail. See `docs/LISTINGS.md`.
 - **Phase 2**: real data pipeline (EA, Ofsted, NHS, DEFRA, Ofcom, TfL,
   HMLR), backend API at `/api/v1`, geocoding, MLS / portal partnership for
   real listings, multi-metro expansion.

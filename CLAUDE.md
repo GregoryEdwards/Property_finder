@@ -33,9 +33,11 @@ src/
     layout/                TopBar, RegionPicker
     map/                   MapView, basemaps, Legend, ListingsToggle, MapLoadingOverlay
     panels/                LayerPanel (left), ResultsPanel (right) + children
+                           ListingsFilterBar (sort/price/beds/EPC/type/tenure/viewport)
     methodology/           MethodologyIndex, CriterionDetailPage, MethodologyLayout
     ui/                    Slider, Checkbox, IconButton  ← reuse before adding
   data/                    loader.ts (TanStack Query hooks), useActiveRegionData
+                           useFilteredListings (filter+sort+viewport pass)
   lib/
     catalog.ts             18 criterion definitions + 5 persona presets
     methodology.ts         authored prose + cited sources per criterion
@@ -43,10 +45,13 @@ src/
     suitability.ts         normalised WLC + hard-constraint masking
     standardize.ts         shared raw → 0..100 transform (seed + runtime)
     listings.ts            per-property suitability + price banding
+    listingPhotos.ts       curated Unsplash photo catalog + photosForSeed()
+    propertyUrl.ts         Rightmove search URL builder + AGENT_POOL
     colorRamp.ts           Viridis sampler (color-blind safe)
     types.ts               domain types
     utils.ts               cn(), formatGBP(), epcColor(), formatRaw()
-  state/                   Zustand stores (Profile + UI + Region + Favourites)
+  state/                   Zustand stores (Profile + UI + Region + Favourites
+                           + ListingsFilter)
 public/data/regions/       region seed JSON (lazy fetched at runtime)
 scripts/                   per-region seed generators + shared listings factory
 docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
@@ -99,6 +104,10 @@ docs/                      ARCHITECTURE, CONVENTIONS, TESTING, data-sources-uk
   you *must* also add a `CriterionMethodology` entry to `lib/methodology.ts`.
 - **Seed scripts share the standardiser**: `scripts/generate-*-seed.ts` import
   `standardize()` from `src/lib/standardize.ts` so seed-time and runtime never drift.
+- **Listings have real outbound URLs**: each synthetic listing's `propertyUrl`
+  links to a real Rightmove search for the postcode district + price ±10% + bed
+  count. Photos are deterministic picks from a curated Unsplash CC0 catalog. See
+  `docs/LISTINGS.md` for the full subsystem.
 
 ## Procedural recipes (skills)
 
@@ -108,6 +117,8 @@ work, they're written to be self-contained:
 - `.claude/skills/add-criterion/SKILL.md` — add a new criterion (catalog + presets +
   seed generators + methodology).
 - `.claude/skills/add-region/SKILL.md` — add a new metro / region.
+- `.claude/skills/work-with-listings/SKILL.md` — change anything in the
+  listings stack (new filter, new field, photo catalog edits, URL builder).
 - `.claude/skills/release-pr/SKILL.md` — pre-PR checklist.
 
 ## Gotchas

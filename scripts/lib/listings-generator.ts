@@ -7,6 +7,8 @@ import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { latLngToCell, cellToLatLng } from 'h3-js'
 import type { Listing, SeedFile } from '../../src/lib/types'
+import { photosForSeed } from '../../src/lib/listingPhotos'
+import { rightmoveSearchUrl, AGENT_POOL } from '../../src/lib/propertyUrl'
 
 export interface PostcodeArea {
   prefix: string
@@ -177,12 +179,14 @@ export function generateListings(opts: ListingsGenerationOptions) {
     const bedMul = 0.7 + beds * 0.18
     const price = Math.round(jitter(medianPrice * typeMul * bedMul, 0.18) / 1000) * 1000
 
+    const photoSeed = opts.photoSeedBase + i
+    const pc = postcodeFor(lat, lng)
     listings.push({
       id: `${opts.region.toUpperCase().slice(0, 3)}-${(i + 1).toString().padStart(5, '0')}`,
       lng,
       lat,
       h3,
-      postcode: postcodeFor(lat, lng),
+      postcode: pc,
       addressLine: addressLine(),
       price,
       beds,
@@ -196,7 +200,9 @@ export function generateListings(opts: ListingsGenerationOptions) {
       epc: epcFromBuildPeriod(rand()),
       councilTaxBand: (cell.raw.council_tax as Listing['councilTaxBand']) ?? 'D',
       daysOnMarket: 1 + Math.floor(rand() * 95),
-      photoSeed: opts.photoSeedBase + i,
+      photos: photosForSeed(photoSeed, 3),
+      propertyUrl: rightmoveSearchUrl({ postcode: pc, price, beds }),
+      agentName: pick(AGENT_POOL),
     })
   }
 

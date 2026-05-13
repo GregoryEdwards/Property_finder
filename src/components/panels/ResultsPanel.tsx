@@ -101,6 +101,7 @@ export function ResultsPanel() {
           <>
             {selectedListing && selectedListingCell && selectedListingResult ? (
               <PropertyDetail
+                key={selectedListing.id}
                 listing={selectedListing}
                 result={listingSuitability(selectedListing, selectedListingResult)}
                 cellRaw={selectedListingCell.raw}
