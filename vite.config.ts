@@ -27,9 +27,13 @@ export default defineConfig({
             '@deck.gl/geo-layers',
             '@deck.gl/react',
           ],
+          charts: ['recharts'],
+          dnd: ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
         },
       },
     },
-    chunkSizeWarningLimit: 900,
+    // The index chunk carries the inlined seed JSON (~3 MB pre-min, ~700 KB
+    // gzipped). Phase 2 moves the data to /api/v1 and shrinks this chunk.
+    chunkSizeWarningLimit: 4000,
   },
 })

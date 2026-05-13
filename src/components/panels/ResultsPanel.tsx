@@ -1,61 +1,156 @@
 import { useMemo } from 'react'
-import { getAustinCells } from '@/data/loader'
+import { Eye, Heart, Home } from 'lucide-react'
+import { getCells, getListings } from '@/data/loader'
 import { CRITERIA } from '@/lib/catalog'
 import { scoreCells, indexByH3 } from '@/lib/suitability'
+import { listingSuitability } from '@/lib/listings'
 import { useProfileStore } from '@/state/useProfileStore'
 import { useUIStore } from '@/state/useUIStore'
+import { useFavouritesStore } from '@/state/useFavoritesStore'
 import { ExplanationCard } from './ExplanationCard'
+import { PropertyDetail } from './PropertyDetail'
+import { ListingsList } from './ListingsList'
 import { RankedList } from './RankedList'
+import { cn } from '@/lib/utils'
 
 /**
- * Right panel. Renders the explanation card for the selected cell (if any),
- * then a ranked top-cells list below.
+ * Right panel — three tabs:
+ *   - Inspect: shows the explanation card / property detail for whatever is
+ *     currently selected on the map. Falls back to "top cells" if nothing.
+ *   - Listings: filtered & ranked listing list.
+ *   - Favourites: saved listings only.
  *
- * It recomputes scores from the profile store on every change. For ~3k cells
- * this is fractional-millisecond work; useMemo prevents redundant work when
- * unrelated UI state changes (basemap, panel toggles).
+ * The suitability re-derivation is the single hot path; results memoise
+ * against the relevant profile slices so unrelated UI changes don't trigger
+ * extra work.
  */
 export function ResultsPanel() {
   const profile = useProfileStore()
   const selectedH3 = useUIStore((s) => s.selectedH3)
+  const selectedListingId = useUIStore((s) => s.selectedListingId)
+  const rightTab = useUIStore((s) => s.rightTab)
+  const setRightTab = useUIStore((s) => s.setRightTab)
+  const favouriteListingIds = useFavouritesStore((s) => s.favouriteListingIds)
 
-  const cells = useMemo(() => getAustinCells(), [])
+  const cells = useMemo(() => getCells(), [])
+  const listings = useMemo(() => getListings(), [])
+
   const results = useMemo(
     () => scoreCells(cells, profile, CRITERIA),
-    // Re-derive when any profile field meaningfully changes.
     [cells, profile.weights, profile.enabled, profile.constraints],
   )
   const resultsByH3 = useMemo(() => indexByH3(results), [results])
+  const cellByH3 = useMemo(() => new Map(cells.map((c) => [c.h3, c])), [cells])
 
-  const selectedCell = selectedH3
-    ? cells.find((c) => c.h3 === selectedH3)
+  const selectedCell = selectedH3 ? cellByH3.get(selectedH3) : undefined
+  const selectedCellResult = selectedH3 ? resultsByH3.get(selectedH3) : undefined
+  const selectedListing = selectedListingId
+    ? listings.find((l) => l.id === selectedListingId)
     : undefined
-  const selectedResult = selectedH3 ? resultsByH3.get(selectedH3) : undefined
+  const selectedListingCell = selectedListing
+    ? cellByH3.get(selectedListing.h3)
+    : undefined
+  const selectedListingResult = selectedListing
+    ? resultsByH3.get(selectedListing.h3)
+    : undefined
 
   return (
     <aside
-      className="flex h-full w-80 shrink-0 flex-col border-l border-border bg-bg-panel"
+      className="flex h-full w-96 shrink-0 flex-col border-l border-border bg-bg-panel"
       aria-label="Results"
     >
       <div className="border-b border-border px-3 py-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-secondary">
           Results
         </h2>
-        <p className="mt-0.5 text-xs text-ink-muted">
-          {selectedH3
-            ? 'Selected cell breakdown · top cells below.'
-            : 'Click any cell on the map to see why it scored as it did.'}
-        </p>
+      </div>
+
+      <div role="tablist" className="flex border-b border-border bg-bg-base">
+        <TabButton
+          active={rightTab === 'inspect'}
+          onClick={() => setRightTab('inspect')}
+          icon={<Eye className="h-3.5 w-3.5" />}
+          label="Inspect"
+        />
+        <TabButton
+          active={rightTab === 'listings'}
+          onClick={() => setRightTab('listings')}
+          icon={<Home className="h-3.5 w-3.5" />}
+          label={`Listings`}
+        />
+        <TabButton
+          active={rightTab === 'favourites'}
+          onClick={() => setRightTab('favourites')}
+          icon={<Heart className="h-3.5 w-3.5" />}
+          label={`Favourites${favouriteListingIds.length ? ` (${favouriteListingIds.length})` : ''}`}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {selectedCell && selectedResult && (
-          <div className="border-b border-border">
-            <ExplanationCard cell={selectedCell} result={selectedResult} />
-          </div>
+        {rightTab === 'inspect' && (
+          <>
+            {selectedListing && selectedListingCell && selectedListingResult ? (
+              <PropertyDetail
+                listing={selectedListing}
+                result={listingSuitability(selectedListing, selectedListingResult)}
+                cellRaw={selectedListingCell.raw}
+              />
+            ) : selectedCell && selectedCellResult ? (
+              <ExplanationCard cell={selectedCell} result={selectedCellResult} />
+            ) : (
+              <>
+                <div className="px-3 py-3 text-xs text-ink-muted">
+                  Click a hex on the map for a score breakdown, or click a
+                  listing pin for property detail.
+                </div>
+                <RankedList cells={cells} resultsByH3={resultsByH3} />
+              </>
+            )}
+          </>
         )}
-        <RankedList cells={cells} resultsByH3={resultsByH3} />
+
+        {rightTab === 'listings' && (
+          <ListingsList listings={listings} resultsByH3={resultsByH3} />
+        )}
+
+        {rightTab === 'favourites' && (
+          <ListingsList
+            listings={listings}
+            resultsByH3={resultsByH3}
+            onlyFavourites
+          />
+        )}
       </div>
     </aside>
+  )
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      role="tab"
+      type="button"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'flex flex-1 items-center justify-center gap-1.5 py-2 text-xs transition-colors',
+        active
+          ? 'border-b-2 border-accent bg-bg-panel text-ink-primary'
+          : 'text-ink-secondary hover:bg-bg-hover',
+      )}
+    >
+      {icon}
+      <span className="truncate">{label}</span>
+    </button>
   )
 }

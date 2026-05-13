@@ -1,27 +1,36 @@
 /**
- * Phase 0 dataset loader.
+ * Phase 1 dataset loader.
  *
- * In Phase 1 this is replaced by a TanStack Query hook fetching from
- * `/api/v1/suitability/cells?bbox=...` and assembling per-viewport batches.
- * For Phase 0 the whole Austin metro fits in memory comfortably (~3k cells,
- * ~1 MB JSON gzipped), so we ship it as a static import.
+ * Static import of the Greater London cell + listings seed files. Replace
+ * with TanStack Query against `/api/v1/suitability/cells` and
+ * `/api/v1/listings` in Phase 2 when the backend lands.
  */
-import seedRaw from './austin-seed.json'
-import type { CellScores } from '@/lib/types'
+import seedRaw from './london-seed.json'
+import listingsRaw from './london-listings.json'
+import type { CellScores, Listing, SeedFile } from '@/lib/types'
 
-interface SeedFile {
+interface ListingsFile {
   version: number
   generatedAt: string
-  metro: string
-  h3Resolution: number
-  bbox: { west: number; south: number; east: number; north: number }
-  downtownAnchor: { lat: number; lng: number }
-  cellCount: number
-  cells: CellScores[]
+  region: string
+  count: number
+  listings: Listing[]
 }
 
-export const SEED = seedRaw as unknown as SeedFile
+export const SEED: SeedFile = seedRaw as unknown as SeedFile
+export const LISTINGS_FILE: ListingsFile = listingsRaw as unknown as ListingsFile
 
-export function getAustinCells(): CellScores[] {
+export function getCells(): CellScores[] {
   return SEED.cells
+}
+
+export function getListings(): Listing[] {
+  return LISTINGS_FILE.listings
+}
+
+/** Build an H3 → cell lookup for fast point→cell joins. */
+export function getCellsByH3(): Map<string, CellScores> {
+  const m = new Map<string, CellScores>()
+  for (const c of SEED.cells) m.set(c.h3, c)
+  return m
 }

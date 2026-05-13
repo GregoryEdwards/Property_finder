@@ -1,38 +1,32 @@
 /**
- * Core domain types for HomeSite Phase 0.
+ * Core domain types for HomeSite.
  *
- * Designed to match the tech-spec's H3-cell model: each cell carries
- * a 0-100 score per criterion. The runtime suitability engine performs
- * a weighted linear combination (WLC) over these per-cell scores.
+ * Phase 1 adds:
+ *   - Listing (UK property listing fields - tenure, EPC, council tax band)
+ *   - PropertySuitability (per-property scorecard derived from the
+ *     cell containing the property)
+ *   - Region metadata in the seed file
  *
- * See: tech-spec §3 (Suitability Engine).
+ * The H3-cell-with-per-criterion-scores model is unchanged from Phase 0;
+ * the runtime suitability engine still performs a weighted linear
+ * combination over these per-cell scores. See tech-spec §3.
  */
 
 export type CriterionId = string
 export type H3Index = string // h3-js returns string indexes by default
 
-/** Whether higher raw values are better or worse for the user. */
 export type Direction = 'more_is_better' | 'less_is_better' | 'category'
 
-/** Transform shapes that convert raw measurements to 0-100 scores. */
 export type Transform =
-  | {
-      type: 'linear'
-      min: number
-      max: number
-    }
+  | { type: 'linear'; min: number; max: number }
   | {
       type: 'fuzzy_decay'
-      idealMax: number // raw value at or below which the score = 100
-      acceptableMax: number // raw value at or above which the score = 0
+      idealMax: number
+      acceptableMax: number
       curve: 'linear' | 'exponential'
     }
-  | {
-      type: 'categorical'
-      mapping: Record<string, number> // raw category -> 0..100 score
-    }
+  | { type: 'categorical'; mapping: Record<string, number> }
 
-/** Thematic groupings shown in the layer panel. */
 export type CategoryId =
   | 'safety'
   | 'employment'
@@ -42,19 +36,17 @@ export type CategoryId =
   | 'demographics'
   | 'real_estate'
 
-/** Static definition of a criterion. Lives in the catalog. */
 export interface CriterionDefinition {
   id: CriterionId
   displayName: string
   category: CategoryId
   unit: string
   direction: Direction
-  defaultWeight: number // 0..10 (UI scale)
+  defaultWeight: number
   defaultEnabled: boolean
   description: string
   dataSource: string
   transform: Transform
-  /** Optional default hard-constraint suggestions. */
   defaultHardConstraint?: {
     excludeValues?: string[]
     excludeAboveScore?: number
@@ -62,54 +54,41 @@ export interface CriterionDefinition {
   }
 }
 
-/** A single H3 cell with per-criterion scores. */
 export interface CellScores {
   h3: H3Index
-  /** criterion id -> 0..100 standardized score */
   scores: Record<CriterionId, number>
-  /** criterion id -> raw underlying value (for tooltips/popovers) */
   raw: Record<CriterionId, number | string>
 }
 
-/** A user's weight profile (live, in-memory; persistence comes in phase 1). */
 export interface WeightProfile {
   id: string
   name: string
-  /** criterion id -> weight on the 0..10 UI scale. Normalized at compute time. */
   weights: Record<CriterionId, number>
-  /** criterion id -> enabled in WLC */
   enabled: Record<CriterionId, boolean>
-  /** Hard constraints: cells violating any are masked out (no score rendered). */
   constraints: HardConstraint[]
 }
 
 export interface HardConstraint {
   criterionId: CriterionId
-  /** For categorical criteria: the set of raw category values to exclude. */
   excludeCategories?: string[]
-  /** Numeric exclusions on the standardized score (0..100). */
   excludeBelowScore?: number
   excludeAboveScore?: number
 }
 
-/** Result of running the WLC on a single cell. */
 export interface CellSuitability {
   h3: H3Index
-  /** 0..100 composite score, or null if any hard constraint was violated. */
   score: number | null
-  /** Ordered list of contributions for the explanation popover. */
   contributions: Contribution[]
 }
 
 export interface Contribution {
   criterionId: CriterionId
   displayName: string
-  weight: number // normalized 0..1
-  score: number // standardized 0..100
-  contribution: number // weight * score
+  weight: number
+  score: number
+  contribution: number
 }
 
-/** A named geographic anchor — e.g. workplace, school, family member's home. */
 export interface Anchor {
   id: string
   name: string
@@ -119,11 +98,80 @@ export interface Anchor {
   maxMinutes: number
 }
 
-/** Persona presets shipped with the app. */
 export interface Preset {
   id: string
   name: string
   description: string
   weights: Record<CriterionId, number>
   constraints?: HardConstraint[]
+}
+
+// ─── Phase 1: UK property listings ───────────────────────────────────────
+
+export type Tenure = 'freehold' | 'leasehold' | 'share_of_freehold'
+export type EPCBand = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G'
+export type CouncilTaxBand = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H'
+
+/**
+ * A UK property listing. Modelled to match the fields that surface on
+ * Rightmove / Zoopla; we'll replace synthetic instances with real feeds
+ * in Phase 2 once a licensing path is secured.
+ */
+export interface Listing {
+  id: string
+  /** Position. */
+  lng: number
+  lat: number
+  /** The H3 cell the listing sits inside — used to inherit the cell's
+   *  per-criterion scores for the per-property scorecard. */
+  h3: H3Index
+  /** Display fields. */
+  postcode: string
+  addressLine: string
+  price: number // GBP
+  beds: number
+  baths: number
+  sqft: number // square feet (Rightmove convention)
+  propertyType:
+    | 'flat'
+    | 'terraced'
+    | 'semi_detached'
+    | 'detached'
+    | 'maisonette'
+    | 'bungalow'
+  tenure: Tenure
+  epc: EPCBand
+  councilTaxBand: CouncilTaxBand
+  daysOnMarket: number
+  /** Stable but synthetic photo placeholder — a Picsum seed id. */
+  photoSeed: number
+}
+
+/** Per-property suitability — composite + ranked contributions. */
+export interface PropertySuitability {
+  listingId: string
+  /** Inherits the cell's composite score (or null if the cell is masked). */
+  score: number | null
+  contributions: Contribution[]
+}
+
+// ─── Region/seed metadata ────────────────────────────────────────────────
+
+export interface RegionAnchor {
+  name: string
+  lat: number
+  lng: number
+}
+
+export interface SeedFile {
+  version: number
+  generatedAt: string
+  region: string
+  regionDisplayName: string
+  country: string
+  h3Resolution: number
+  bbox: { west: number; south: number; east: number; north: number }
+  anchor: RegionAnchor
+  cellCount: number
+  cells: CellScores[]
 }
