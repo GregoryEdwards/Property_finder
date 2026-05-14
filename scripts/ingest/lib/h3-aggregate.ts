@@ -43,3 +43,11 @@ export function median(values: number[]): number {
     ? (sorted[mid - 1] + sorted[mid]) / 2
     : sorted[mid]
 }
+
+/** Max of a non-empty numeric array. */
+export function max(values: number[]): number {
+  if (values.length === 0) throw new Error('max: empty array')
+  let m = -Infinity
+  for (const v of values) if (v > m) m = v
+  return m
+}

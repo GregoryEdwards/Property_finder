@@ -18,6 +18,7 @@
     "seed:listings:wm": "tsx scripts/generate-west-midlands-listings.ts",
     "ingest:median-price": "tsx scripts/ingest/median-price.ts",
     "ingest:crime-rate": "tsx scripts/ingest/crime-rate.ts",
+    "ingest:broadband-speed": "tsx scripts/ingest/broadband-speed.ts",
     "build-seed:london": "tsx scripts/build-region-seed.ts --region=greater-london",
     "build-seed:wm": "tsx scripts/build-region-seed.ts --region=west-midlands",
     "test": "vitest run",
