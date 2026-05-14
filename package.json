@@ -15,7 +15,12 @@
     "seed:cells:london": "tsx scripts/generate-london-seed.ts",
     "seed:cells:wm": "tsx scripts/generate-west-midlands-seed.ts",
     "seed:listings:london": "tsx scripts/generate-london-listings.ts",
-    "seed:listings:wm": "tsx scripts/generate-west-midlands-listings.ts"
+    "seed:listings:wm": "tsx scripts/generate-west-midlands-listings.ts",
+    "ingest:median-price": "tsx scripts/ingest/median-price.ts",
+    "build-seed:london": "tsx scripts/build-region-seed.ts --region=greater-london",
+    "build-seed:wm": "tsx scripts/build-region-seed.ts --region=west-midlands",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@deck.gl/core": "^9.0.33",
@@ -59,6 +64,7 @@
     "tsx": "^4.19.2",
     "typescript": "~5.6.3",
     "typescript-eslint": "^8.13.0",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "vitest": "^2.1.5"
   }
 }
