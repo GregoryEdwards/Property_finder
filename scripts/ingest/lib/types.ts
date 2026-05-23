@@ -29,6 +29,10 @@ export interface IngestOptions {
   useFixtures?: boolean
   /** Override "now" for deterministic trailing-window filtering in tests. */
   today?: Date
+  /** Override for the region's full cell count. Ratio metrics
+   *  (e.g. crimes/1k/yr) use this as the population denominator so the rate
+   *  doesn't scale with a test's subset size. Defaults to `h3Cells.length`. */
+  regionCellCount?: number
 }
 
 export interface IngestResult {
