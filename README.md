@@ -5,7 +5,7 @@
 > A&E access, price, crime, air quality), and the app continuously surfaces
 > the best zones on a map — alongside the live listings inside them.
 
-**Phase 1.2 · Greater London + West Midlands · 18 criteria**.
+**Phase 1.2 shipped · Phase 2 in flight · Greater London + West Midlands · 18 criteria**.
 Persona presets and Rightmove-style listings tuned for the UK property
 market. Two launch regions today (Greater London, West Midlands
 conurbation); adding more is a registry entry + a seed generator — the
@@ -13,14 +13,22 @@ runtime fetches each region's data on demand from `/data/regions/*`
 rather than bundling it. Every criterion has a documented methodology
 page citing real upstream sources, publication cadence, and dates.
 
+Phase 2 has begun migrating criteria from synthetic seed data to real
+upstream sources, one criterion at a time. Three criteria are live so
+far: `median_price` (HM Land Registry), `crime_rate` (data.police.uk),
+and `broadband_speed` (Ofcom Connected Nations). See
+`docs/ingestion-pipeline.md`.
+
 ---
 
 ## Quick start
 
 ```bash
 npm install
-npm run seed           # regenerate the London cell + listings seeds
+npm run seed           # regenerate the London + WM synthetic seeds
 npm run dev            # http://localhost:5173
+npm test               # vitest (covers standardize + Phase 2 ingestors)
+npm run build          # tsc + vite production build
 ```
 
 Move the priority sliders or drag-to-rank on the left, watch the heatmap
@@ -28,6 +36,26 @@ redraw in real time, click a hex or a listing pin to inspect, save the
 ones you like.
 
 ## What's new
+
+### Phase 2 (in flight on `claude/audit-data-sources-zyKNr`)
+- **Real-data ingestion pipeline.** Per‑criterion ingestors under
+  `scripts/ingest/<criterion>.ts` produce `Record<h3, raw>` JSON; the
+  combiner `scripts/build-region-seed.ts` merges them into the existing
+  `SeedFile` and re‑runs `standardize()`. Unmigrated criteria pass
+  through untouched, so the app keeps working while migration is in
+  progress. Full details in `docs/ingestion-pipeline.md`.
+- **Three criteria migrated** so far:
+  - `median_price` — HM Land Registry Price Paid Data (Phase 2.0).
+  - `crime_rate` — data.police.uk street-level CSV with a uniform
+    per‑cell population denominator v1 (Phase 2.1).
+  - `broadband_speed` — Ofcom Connected Nations postcode‑level CSV
+    (Phase 2.2).
+- **`SeedFile.provenance`** — new optional `Record<CriterionId, CriterionProvenance>`
+  field discriminated on `kind: 'real' | 'synthetic'`. Source URL,
+  fetched timestamp, and version are persisted alongside each migrated
+  criterion.
+- **First tests in the repo** via `vitest`. 14 passing across
+  `standardize` transforms and each migrated ingestor.
 
 ### Phase 1.2
 - **Nature & countryside access** — a new criterion distinct from local
@@ -111,6 +139,12 @@ ones you like.
 │    public/data/regions/<id>.cells.json     fetched on switch    │
 │    public/data/regions/<id>.listings.json  fetched on switch    │
 │    Cache: TanStack Query (staleTime: Infinity per session)      │
+│                                                                 │
+│  Phase 2 ingestion (offline pipeline)                           │
+│    scripts/ingest/<criterion>.ts  →  Record<h3, raw> JSON       │
+│    scripts/build-region-seed.ts   →  merges into SeedFile +     │
+│                                       writes provenance block.  │
+│    Static JSON is unchanged shape; UI keeps working.            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -136,13 +170,14 @@ src/
     loader.ts              TanStack Query hooks per region (cells + listings)
     useActiveRegionData.ts composite hook used by Map and ResultsPanel
   lib/
-    catalog.ts             17 UK criterion definitions + 5 presets
+    catalog.ts             18 UK criterion definitions + 5 presets
     regions.ts             multi-region registry (London + West Midlands)
     suitability.ts         runtime WLC + constraint masking
     standardize.ts         shared raw→0..100 transform
+    methodology.ts         long-form per-criterion methodology + sources
     listings.ts            per-property suitability + price banding
     colorRamp.ts           Viridis sampler
-    types.ts               domain types
+    types.ts               domain types (incl. SeedFile.provenance)
     utils.ts               cn(), formatGBP(), epcColor(), formatRaw()
   state/
     useProfileStore.ts     persisted profile
@@ -154,11 +189,23 @@ public/
     greater-london.cells.json    + .listings.json
     west-midlands.cells.json     + .listings.json
 scripts/
-  generate-london-seed.ts        + listings
-  generate-west-midlands-seed.ts + listings
+  generate-london-seed.ts        + listings    (Phase 1 synthetic)
+  generate-west-midlands-seed.ts + listings    (Phase 1 synthetic)
   lib/listings-generator.ts      shared synthetic-listings factory
+  build-region-seed.ts           Phase 2 combiner
+  ingest/                        Phase 2 per-criterion real-data ingestors
+    median-price.ts              HM Land Registry PPD
+    crime-rate.ts                data.police.uk
+    broadband-speed.ts           Ofcom Connected Nations
+    lib/                         shared ingest utilities
+    fixtures/                    bundled CSV samples for tests + CI
+  data/                          gitignored: raw downloads + processed outputs
 docs/
   data-sources-uk.md       upstream sources + fair-housing guardrails
+  ingestion-pipeline.md    Phase 2 ingestion contract + cookbook
+CLAUDE.md                  conventions for AI coding sessions
+vitest.config.ts           test framework wiring
+.env.example               env vars for real-data ingestion overrides
 ```
 
 ### Adding a new region
@@ -172,6 +219,21 @@ docs/
 The region picker, async loader, and map auto-recenter pick the new
 region up automatically. The initial bundle does **not** grow because
 region data is fetched only when the region is activated.
+
+### Adding a new real-data ingestor
+
+See `docs/ingestion-pipeline.md` for the full cookbook. Short version:
+
+1. Create `scripts/ingest/<criterion>.ts` modelled on the closest
+   existing ingestor (`median-price.ts` for postcode-CSV + median,
+   `crime-rate.ts` for lat/lng + ratio, `broadband-speed.ts` for
+   postcode-CSV + max).
+2. Add a fixture under `scripts/ingest/fixtures/<source>-sample.csv`.
+3. Add a unit test `scripts/ingest/<criterion>.test.ts`.
+4. Wire `npm run ingest:<criterion>` in `package.json` and document the
+   override env var in `.env.example`.
+5. Run `npm test`, then `npm run ingest:<criterion> -- --region=greater-london --fixtures`,
+   then `npm run build-seed:london` to verify end-to-end.
 
 ## Suitability engine
 
@@ -187,9 +249,9 @@ for each cell c:
   else                               →  score(c) = Σ_i w_i · s_i(c)
 ```
 
-For 4,400 cells × 15 criteria this is well under 2 ms in plain JS — no
-debouncing required, the heatmap redraws within a single frame of any
-slider move.
+For ~4,400 London cells × 18 criteria this is well under 2 ms in plain
+JS — no debouncing required, the heatmap redraws within a single frame
+of any slider move.
 
 ## Cartographic guardrails
 
@@ -202,16 +264,21 @@ slider move.
 ## Roadmap
 
 - Phase 0 (`phase-0-scaffold`) — Austin demo, 6 criteria, proved the UX.
-- **Phase 1 (this branch)** — UK / Greater London, 15 criteria, listings,
-  favourites, drag-to-rank, profile persistence.
-- Phase 2 — real data pipeline (FEMA → EA, Ofsted, NHS, DEFRA, Ofcom, TfL),
-  TanStack Query against `/api/v1`, geocoding, MLS / portal partnership
-  for real listings, multi-metro expansion (Manchester, Birmingham,
-  Bristol, Edinburgh).
+- Phase 1 — UK / Greater London, 15 criteria, listings, favourites,
+  drag-to-rank, profile persistence.
+- Phase 1.1 — Multi-region (London + West Midlands), +2 criteria, async
+  per-region loader.
+- Phase 1.2 — `nature_access` criterion, per-criterion methodology
+  pages, react-router-dom routing.
+- **Phase 2 (in flight)** — real-data ingestion pipeline; per-criterion
+  ingestors that swap synthetic seed data for cited real upstreams (EA,
+  Ofsted, NHS, DEFRA, Ofcom, TfL, ONS, police.uk, HM Land Registry).
+  3 / 18 criteria migrated so far. See `docs/ingestion-pipeline.md`.
 - Phase 3 — Tauri desktop wrapper, offline cache, AHP weight derivation,
   sensitivity analysis, collaborative profiles for couples.
 
-See `docs/data-sources-uk.md` for the per-criterion data plan.
+See `docs/data-sources-uk.md` for the per-criterion data plan and
+`docs/ingestion-pipeline.md` for how ingestors are built.
 
 ## Licence
 
